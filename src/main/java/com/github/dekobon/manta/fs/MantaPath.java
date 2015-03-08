@@ -12,6 +12,9 @@ import java.nio.file.*;
 import java.util.Iterator;
 
 /**
+ * Implementation of {@link java.nio.file.Path} that is backed by properties
+ * relevant to a Manta object.
+ *
  * @author Elijah Zupancic
  * @since 1.0.0
  */

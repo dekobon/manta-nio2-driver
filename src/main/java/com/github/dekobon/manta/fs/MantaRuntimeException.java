@@ -1,6 +1,9 @@
 package com.github.dekobon.manta.fs;
 
 /**
+ * Runtime exception used to wrap compile-time exceptions from the Manta Java
+ * library so that we can play nice with the NIO.2 API.
+ *
  * @author Elijah Zupancic
  * @since 1.0.0
  */

@@ -20,6 +20,8 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
+ * Manta implementation of a NIO.2 {@link java.nio.file.spi.FileSystemProvider}.
+ *
  * @author Elijah Zupancic
  * @since 1.0.0
  */

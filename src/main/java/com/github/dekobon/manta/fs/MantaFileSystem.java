@@ -17,6 +17,8 @@ import java.util.Iterator;
 import java.util.Set;
 
 /**
+ * Manta implementation of a NIO.2 {@link java.nio.file.FileSystem}.
+ *
  * @author Elijah Zupancic
  * @since 1.0.0
  */

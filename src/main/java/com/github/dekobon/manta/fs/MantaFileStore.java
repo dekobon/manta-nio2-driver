@@ -6,6 +6,11 @@ import java.nio.file.attribute.FileAttributeView;
 import java.nio.file.attribute.FileStoreAttributeView;
 
 /**
+ * Mostly hard-coded file store implementation for Manta.
+ *
+ * Many of the properties defined here aren't applicable to Manta, so we
+ * return back our best guesses.
+ *
  * @author Elijah Zupancic
  * @since 1.0.0
  */
