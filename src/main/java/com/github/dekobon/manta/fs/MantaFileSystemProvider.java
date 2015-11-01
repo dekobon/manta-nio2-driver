@@ -1,5 +1,9 @@
 package com.github.dekobon.manta.fs;
 
+import com.github.dekobon.manta.fs.config.ConfigContext;
+import com.github.dekobon.manta.fs.config.EnvVarConfigContext;
+import com.github.dekobon.manta.fs.config.MapConfigContext;
+import com.github.dekobon.manta.fs.config.SystemSettingsConfigContext;
 import com.joyent.manta.client.MantaClient;
 import com.joyent.manta.com.google.api.client.repackaged.com.google.common.base.Objects;
 import org.slf4j.Logger;
@@ -29,18 +33,18 @@ public class MantaFileSystemProvider extends FileSystemProvider {
     public static final String SCHEME = "manta";
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
-    private final MantaConfigContext defaultContext;
+    private final ConfigContext defaultContext;
     final ConcurrentMap<URI, MantaFileSystem> fileSystemCache =
             new ConcurrentHashMap<>();
 
     private AtomicReference<MantaClient> clientRef = new AtomicReference<>();
 
-    public MantaFileSystemProvider(MantaConfigContext defaultContext) {
+    public MantaFileSystemProvider(ConfigContext defaultContext) {
         this.defaultContext = defaultContext;
     }
 
     public MantaFileSystemProvider() {
-        this.defaultContext = new MantaConfigContext();
+        this.defaultContext = new SystemSettingsConfigContext();
     }
 
     @Override
@@ -61,23 +65,20 @@ public class MantaFileSystemProvider extends FileSystemProvider {
                 String.format("Invalid URI: [%s] URI protocol/scheme must be %s",
                         uri, SCHEME));
 
-        final MantaConfigContext configContext;
+        final ConfigContext configContext;
 
         if (env == null || env.isEmpty()) {
             configContext = defaultContext;
         } else {
-            configContext = new MantaConfigContext(env);
+            ConfigContext mapContext = new MapConfigContext(env);
+            configContext = new SystemSettingsConfigContext(mapContext);
         }
 
         /* We lazily instantiate the Manta client and share it between
          * threads and all instances of MantaFileSystem because it should be
          * thread-safe and we don't need a bunch of duplicate copies. */
          try {
-             clientRef.compareAndSet(null, MantaClient.newInstance(
-                     configContext.getMantaUrl(),
-                     configContext.getMantaUser(),
-                     configContext.getMantaKeyPath(),
-                     configContext.getMantaKeyFingerprint()));
+             clientRef.compareAndSet(null, MantaClient.newInstance(configContext));
 
          } catch (IOException e) {
              throw new MantaRuntimeException("Error setting up Manta " +
