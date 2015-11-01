@@ -1,8 +1,13 @@
 package com.github.dekobon.manta.fs;
 
+import com.github.dekobon.manta.fs.config.ConfigContext;
+import com.github.dekobon.manta.fs.config.SystemSettingsConfigContext;
+import com.joyent.manta.client.MantaClient;
 import org.junit.Assert;
 import org.junit.Test;
 
+import java.io.IOException;
+import java.net.URI;
 import java.nio.file.FileSystems;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
@@ -44,7 +49,16 @@ public class PathOps {
     private PathOps(String first, String... more) {
         out.println();
         input = first;
-        path = new MantaPath(first, null, null, more);
+        try {
+            ConfigContext config = new SystemSettingsConfigContext();
+            MantaFileSystemProvider provider = new MantaFileSystemProvider(config);
+            URI mantaPath = URI.create(String.format("manta://%s/stor", config.getMantaUser()));
+            MantaFileSystem fileSystem = (MantaFileSystem) provider.newFileSystem(mantaPath, null);
+            MantaClient client = MantaClient.newInstance(config);
+            path = new MantaPath(first, fileSystem, null, more);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
         out.format("%s -> %s", first, path);
 
         out.println();
@@ -68,6 +82,7 @@ public class PathOps {
         if (expected == null) {
             Assert.assertNull(result);
         } else {
+            Assert.assertNotNull(String.format("Expected: %s", expected), result);
             Assert.assertEquals(expected, result.toString());
         }
     }
@@ -211,250 +226,6 @@ public class PathOps {
         out.println();
         out.println();
         out.println("-- " + s + " --");
-    }
-
-    static void doUnixTests() {
-        // no root component
-        test("a/b")
-                .root(null)
-                .parent("a")
-                .name("b");
-
-        // name component only
-        test("foo")
-                .root(null)
-                .parent(null)
-                .name("foo");
-        test("")
-                .root(null)
-                .parent(null)
-                .name("");
-
-        // startsWith
-        test("/")
-                .starts("/")
-                .notStarts("")
-                .notStarts("/foo");
-        test("/foo")
-                .starts("/")
-                .starts("/foo")
-                .notStarts("/f");
-        test("/foo/bar")
-                .starts("/")
-                .starts("/foo")
-                .starts("/foo/bar")
-                .notStarts("/f")
-                .notStarts("foo")
-                .notStarts("foo/bar");
-        test("foo")
-                .starts("foo")
-                .notStarts("")
-                .notStarts("f");
-        test("foo/bar")
-                .starts("foo")
-                .starts("foo/bar")
-                .notStarts("f")
-                .notStarts("/foo")
-                .notStarts("/foo/bar");
-        test("")
-                .starts("")
-                .notStarts("/");
-
-        // endsWith
-        test("/")
-                .ends("/")
-                .notEnds("")
-                .notEnds("foo")
-                .notEnds("/foo");
-        test("/foo")
-                .ends("foo")
-                .ends("/foo")
-                .notEnds("fool");
-        test("/foo/bar")
-                .ends("bar")
-                .ends("foo/bar")
-                .ends("/foo/bar")
-                .notEnds("ar")
-                .notEnds("barack")
-                .notEnds("/bar")
-                .notEnds("o/bar");
-        test("foo")
-                .ends("foo")
-                .notEnds("")
-                .notEnds("oo")
-                .notEnds("oola");
-        test("foo/bar")
-                .ends("bar")
-                .ends("foo/bar")
-                .notEnds("r")
-                .notEnds("barmaid")
-                .notEnds("/bar");
-        test("foo/bar/gus")
-                .ends("gus")
-                .ends("bar/gus")
-                .ends("foo/bar/gus")
-                .notEnds("g")
-                .notEnds("/gus")
-                .notEnds("r/gus")
-                .notEnds("barack/gus")
-                .notEnds("bar/gust");
-        test("")
-                .ends("")
-                .notEnds("/");
-
-        // elements
-        test("a/b/c")
-                .element(0, "a")
-                .element(1, "b")
-                .element(2, "c");
-        test("")
-                .element(0, "");
-
-        // subpath
-        test("/foo")
-                .subpath(0, 1, "foo");
-        test("foo")
-                .subpath(0, 1, "foo");
-        test("/foo/bar")
-                .subpath(0, 1, "foo")
-                .subpath(1, 2, "bar")
-                .subpath(0, 2, "foo/bar");
-        test("foo/bar")
-                .subpath(0, 1, "foo")
-                .subpath(1, 2, "bar")
-                .subpath(0, 2, "foo/bar");
-        test("/foo/bar/gus")
-                .subpath(0, 1, "foo")
-                .subpath(1, 2, "bar")
-                .subpath(2, 3, "gus")
-                .subpath(0, 2, "foo/bar")
-                .subpath(1, 3, "bar/gus")
-                .subpath(0, 3, "foo/bar/gus");
-        test("foo/bar/gus")
-                .subpath(0, 1, "foo")
-                .subpath(1, 2, "bar")
-                .subpath(2, 3, "gus")
-                .subpath(0, 2, "foo/bar")
-                .subpath(1, 3, "bar/gus")
-                .subpath(0, 3, "foo/bar/gus");
-        test("")
-                .subpath(0, 1, "");
-
-        // isAbsolute
-        test("/")
-                .absolute();
-        test("/tmp")
-                .absolute();
-        test("tmp")
-                .notAbsolute();
-        test("")
-                .notAbsolute();
-
-
-        // resolve
-        test("/tmp")
-                .resolve("foo", "/tmp/foo")
-                .resolve("/foo", "/foo")
-                .resolve("", "/tmp");
-        test("tmp")
-                .resolve("foo", "tmp/foo")
-                .resolve("/foo", "/foo")
-                .resolve("", "tmp");
-        test("")
-                .resolve("", "")
-                .resolve("foo", "foo")
-                .resolve("/foo", "/foo");
-
-        // resolveSibling
-        test("foo")
-                .resolveSibling("bar", "bar")
-                .resolveSibling("/bar", "/bar")
-                .resolveSibling("", "");
-        test("foo/bar")
-                .resolveSibling("gus", "foo/gus")
-                .resolveSibling("/gus", "/gus")
-                .resolveSibling("", "foo");
-        test("/foo")
-                .resolveSibling("gus", "/gus")
-                .resolveSibling("/gus", "/gus")
-                .resolveSibling("", "/");
-        test("/foo/bar")
-                .resolveSibling("gus", "/foo/gus")
-                .resolveSibling("/gus", "/gus")
-                .resolveSibling("", "/foo");
-        test("")
-                .resolveSibling("foo", "foo")
-                .resolveSibling("/foo", "/foo")
-                .resolve("", "");
-
-        // relativize
-        test("/a/b/c")
-                .relativize("/a/b/c", "")
-                .relativize("/a/b/c/d/e", "d/e")
-                .relativize("/a/x", "../../x")
-                .relativize("/x", "../../../x");
-        test("a/b/c")
-                .relativize("a/b/c/d", "d")
-                .relativize("a/x", "../../x")
-                .relativize("x", "../../../x")
-                .relativize("", "../../..");
-        test("")
-                .relativize("a", "a")
-                .relativize("a/b/c", "a/b/c")
-                .relativize("", "");
-
-        // normalize
-        test("/")
-                .normalize("/");
-        test("foo")
-                .normalize("foo");
-        test("/foo")
-                .normalize("/foo");
-        test(".")
-                .normalize("");
-        test("..")
-                .normalize("..");
-        test("/..")
-                .normalize("/");
-        test("/../..")
-                .normalize("/");
-        test("foo/.")
-                .normalize("foo");
-        test("./foo")
-                .normalize("foo");
-        test("foo/..")
-                .normalize("");
-        test("../foo")
-                .normalize("../foo");
-        test("../../foo")
-                .normalize("../../foo");
-        test("foo/bar/..")
-                .normalize("foo");
-        test("foo/bar/gus/../..")
-                .normalize("foo");
-        test("/foo/bar/gus/../..")
-                .normalize("/foo");
-
-        // invalid
-        test("foo\u0000bar")
-                .invalid();
-        test("\u0000foo")
-                .invalid();
-        test("bar\u0000")
-                .invalid();
-        test("//foo\u0000bar")
-                .invalid();
-        test("//\u0000foo")
-                .invalid();
-        test("//bar\u0000")
-                .invalid();
-
-        // normalization of input
-        test("//foo//bar")
-                .string("/foo/bar")
-                .root("/")
-                .parent("/foo")
-                .name("bar");
     }
 
     static void npes() {

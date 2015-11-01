@@ -4,9 +4,12 @@ import com.joyent.manta.client.MantaClient;
 import com.joyent.manta.client.MantaObject;
 import com.joyent.manta.exception.MantaClientHttpResponseException;
 import com.joyent.manta.exception.MantaCryptoException;
+import org.apache.commons.io.FileSystemUtils;
 import org.apache.commons.io.FilenameUtils;
+import org.apache.commons.io.filefilter.FileFilterUtils;
 
 import java.io.File;
+import java.io.FileFilter;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.*;
@@ -111,8 +114,8 @@ public class MantaPath implements Path {
         // There is no filename available for the root directory
         if (objectPath.equals(fileSystem.rootDirectory().toString())) return null;
 
-        String noTrailingSeparator = FilenameUtils.getFullPathNoEndSeparator(objectPath);
-        String fileName = FilenameUtils.getBaseName(noTrailingSeparator);
+        String normalized = FilenameUtils.normalizeNoEndSeparator(objectPath, true);
+        String fileName = FilenameUtils.getBaseName(normalized);
         return new MantaPath(fileName, fileSystem, mantaClient);
     }
 
@@ -123,10 +126,10 @@ public class MantaPath implements Path {
         // We imitate the behavior of UnixPath in these cases
         if (objectPath.equals(".") || objectPath.equals("..")) return null;
 
-        String noTrailingSeparator = FilenameUtils.getFullPathNoEndSeparator(objectPath);
-        String parent = FilenameUtils.getFullPath(noTrailingSeparator);
+        String normalized = FilenameUtils.normalizeNoEndSeparator(objectPath, true);
+        String parent = FilenameUtils.getFullPathNoEndSeparator(normalized);
 
-        return null;
+        return new MantaPath(parent, fileSystem, mantaClient);
     }
 
     @Override
@@ -166,17 +169,60 @@ public class MantaPath implements Path {
 
     @Override
     public Path normalize() {
-        return null;
+        final String resolve = resolveObjectPath(objectPath);
+        final String normalized = FilenameUtils.normalizeNoEndSeparator(resolve, true);
+
+        return new MantaPath(normalized, fileSystem, mantaClient);
     }
 
     @Override
     public Path resolve(Path other) {
-        return null;
+        return resolve(objectPath);
     }
 
     @Override
     public Path resolve(String other) {
         return null;
+    }
+
+    protected String resolveObjectPath(String objectPath) {
+        switch (objectPath) {
+            case "/":
+                return "/";
+            case "..":
+                return "/";
+            case ".":
+                return "/";
+        }
+
+        String[] parts = objectPath.split(separator);
+        StringBuilder builder = new StringBuilder();
+
+        boolean trailingSeparator = objectPath.endsWith(separator);
+        for (int i = 0; i < parts.length; i++) {
+            final String part = parts[i];
+            final String lastPart = i > 0 ? parts[i-1] : "";
+
+            if (part.isEmpty()) continue;
+            if (part.equals(".")) continue;
+            if (part.equals("..") && i == 0) continue;
+            if (part.equals("..") && builder.length() == 0) continue;
+
+            if (part.equals("..")) {
+                final int start = builder.length() - lastPart.length() - 1;
+                final int end = builder.length();
+                builder.delete(start, end);
+                continue;
+            }
+
+            builder.append(separator);
+            builder.append(part);
+        }
+
+        if (trailingSeparator) builder.append(separator);
+        if (builder.length() == 0) builder.append(separator);
+
+        return builder.toString();
     }
 
     @Override
