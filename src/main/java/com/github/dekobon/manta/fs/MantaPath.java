@@ -4,12 +4,14 @@ import com.joyent.manta.client.MantaClient;
 import com.joyent.manta.client.MantaObject;
 import com.joyent.manta.exception.MantaClientHttpResponseException;
 import com.joyent.manta.exception.MantaCryptoException;
+import org.apache.commons.io.FilenameUtils;
 
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.*;
 import java.util.Iterator;
+import java.util.Objects;
 
 /**
  * Implementation of {@link java.nio.file.Path} that is backed by properties
@@ -19,19 +21,70 @@ import java.util.Iterator;
  * @since 1.0.0
  */
 public class MantaPath implements Path {
+    private final char separatorChar;
+    private final String separator;
     private final String objectPath;
     private final MantaFileSystem fileSystem;
     private final MantaClient mantaClient;
     private volatile MantaObject mantaObject;
 
-    public MantaPath(String objectPath,
-            MantaFileSystem fileSystem,
-            MantaClient mantaClient) {
-        if (objectPath == null) throw new IllegalArgumentException(
+    public MantaPath(String first, MantaFileSystem fileSystem, MantaClient mantaClient, String... more) {
+        if (first == null) throw new IllegalArgumentException(
                 "Object path must not be null");
-        this.objectPath = objectPath;
+
         this.fileSystem = fileSystem;
         this.mantaClient = mantaClient;
+        this.separatorChar = fileSystem == null ?
+                '/' : fileSystem.getSeparator().charAt(0);
+        this.separator = new String(new char[] { separatorChar });
+        this.objectPath = buildObjectPath(first, more);
+    }
+
+    protected String buildObjectPath(String first, String... more) {
+        if (more == null || more.length == 0) {
+            return first;
+        }
+
+        // Don't pre add first if it is the separator, otherwise we will get a path like //foo
+        final StringBuilder builder;
+
+        if (first.equals(separator)) {
+            builder = new StringBuilder();
+        } else {
+            builder = new StringBuilder(first);
+        }
+
+        for (int i = 0; i < more.length; i++) {
+            final String part = more[i];
+
+            if (part == null) continue;
+            if (part.isEmpty()) continue;
+            if (part.equals(this.separator)) continue;
+
+            String normalized = FilenameUtils.normalizeNoEndSeparator(part, true);
+
+            boolean emptyFirstValue = i == 0 && first.isEmpty();
+            boolean hasLeadingSeparator = normalized.charAt(0) == separatorChar;
+
+            if (!hasLeadingSeparator && !emptyFirstValue) {
+                builder.append(this.separatorChar);
+            }
+
+            builder.append(normalized);
+        }
+
+        String builtPath = builder.toString();
+
+        // If everything is empty, then we assume we are getting the root directory
+        if (first.isEmpty() && builtPath.isEmpty()) {
+            return separator;
+        // When we've excluded all of the possible extra parts, we can't append double separators together,
+        // so we just return the value of first.
+        } else if (builtPath.isEmpty()) {
+            return first;
+        } else {
+            return builtPath;
+        }
     }
 
     @Override
@@ -41,21 +94,38 @@ public class MantaPath implements Path {
 
     @Override
     public boolean isAbsolute() {
-        return false;
+        return !objectPath.isEmpty() && objectPath.charAt(0) == separatorChar;
     }
 
     @Override
     public Path getRoot() {
-        return null;
+        if (!objectPath.isEmpty() && objectPath.charAt(0) == separatorChar) {
+            return fileSystem.rootDirectory();
+        } else {
+            return null;
+        }
     }
 
     @Override
     public Path getFileName() {
-        return null;
+        // There is no filename available for the root directory
+        if (objectPath.equals(fileSystem.rootDirectory().toString())) return null;
+
+        String noTrailingSeparator = FilenameUtils.getFullPathNoEndSeparator(objectPath);
+        String fileName = FilenameUtils.getBaseName(noTrailingSeparator);
+        return new MantaPath(fileName, fileSystem, mantaClient);
     }
 
     @Override
     public Path getParent() {
+        // The root directory doesn't have a parent
+        if (objectPath.equals(fileSystem.rootDirectory().toString())) return null;
+        // We imitate the behavior of UnixPath in these cases
+        if (objectPath.equals(".") || objectPath.equals("..")) return null;
+
+        String noTrailingSeparator = FilenameUtils.getFullPathNoEndSeparator(objectPath);
+        String parent = FilenameUtils.getFullPath(noTrailingSeparator);
+
         return null;
     }
 
@@ -184,5 +254,22 @@ public class MantaPath implements Path {
 
     public void setMantaObject(MantaObject mantaObject) {
         this.mantaObject = mantaObject;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        MantaPath paths = (MantaPath) o;
+        return Objects.equals(objectPath, paths.objectPath);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(objectPath);
+    }
+
+    public String toString() {
+        return objectPath;
     }
 }

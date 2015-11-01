@@ -29,6 +29,7 @@ public class MantaFileSystem extends FileSystem {
     private final URI uri;
     private final MantaClient mantaClient;
     private final MantaFileSystemProvider fileSystemProvider;
+    private final MantaPath rootDirectory;
 
     public MantaFileSystem(URI uri,
                            MantaClient mantaClient,
@@ -36,6 +37,7 @@ public class MantaFileSystem extends FileSystem {
         this.uri = uri;
         this.mantaClient = mantaClient;
         this.fileSystemProvider = fileSystemProvider;
+        this.rootDirectory = new MantaPath("/", this, mantaClient);
     }
 
     @Override
@@ -107,6 +109,11 @@ public class MantaFileSystem extends FileSystem {
 
                         return null;
                     }
+
+                    @Override
+                    public void remove() {
+                        throw new UnsupportedOperationException("remove() not implemented");
+                    }
                 };
             }
         };
@@ -135,5 +142,9 @@ public class MantaFileSystem extends FileSystem {
     @Override
     public WatchService newWatchService() throws IOException {
         throw new UnsupportedOperationException("Not implemented yet");
+    }
+
+    public MantaPath rootDirectory() {
+        return rootDirectory;
     }
 }
