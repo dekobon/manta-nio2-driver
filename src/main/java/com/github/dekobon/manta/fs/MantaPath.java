@@ -149,22 +149,59 @@ public class MantaPath implements Path {
 
     @Override
     public boolean startsWith(Path other) {
-        return false;
+        if (other instanceof MantaPath) {
+            MantaPath otherMantaPath = (MantaPath)other;
+            return startsWith(otherMantaPath.objectPath);
+        } else {
+            return startsWith(other.toString());
+        }
     }
 
     @Override
     public boolean startsWith(String other) {
-        return false;
+        if (objectPath.isEmpty() && other.isEmpty()) return true;
+        if (objectPath.isEmpty() && other.equals(separator)) return false;
+        if (other == null || other.isEmpty()) return false;
+
+        String resolveOther = resolveObjectPath(other);
+        String resolveOtherWithSeparator = resolveOther.endsWith(separator) ?
+                resolveOther : resolveOther + separator;
+        String resolve = resolveObjectPath(objectPath);
+        String resolveWithSeparator = resolve.endsWith("/") ?
+                resolve : resolve + separator;
+
+        return resolveWithSeparator.startsWith(resolveOtherWithSeparator);
     }
 
     @Override
     public boolean endsWith(Path other) {
-        return false;
+        if (other instanceof MantaPath) {
+            MantaPath otherMantaPath = (MantaPath)other;
+            return startsWith(otherMantaPath.objectPath);
+        } else {
+            return endsWith(other.toString());
+        }
     }
 
     @Override
     public boolean endsWith(String other) {
-        return false;
+        if (objectPath.isEmpty() && other.isEmpty()) return true;
+        if (objectPath.isEmpty() && other.equals(separator)) return false;
+        if (other == null || other.isEmpty()) return false;
+
+        String resolveOther = resolveObjectPath(other);
+        String resolveOtherWithSeparator = resolveOther.endsWith(separator) ?
+                resolveOther : resolveOther + separator;
+        String resolve = resolveObjectPath(objectPath);
+        String resolveWithSeparator = resolve.endsWith("/") ?
+                resolve : resolve + separator;
+
+        // if the comparison path is absolute, then we compare from the start
+        if (other.startsWith(separator)) {
+            return resolveWithSeparator.startsWith(resolveOtherWithSeparator);
+        } else {
+            return resolveWithSeparator.endsWith(resolveOtherWithSeparator);
+        }
     }
 
     @Override
@@ -177,12 +214,29 @@ public class MantaPath implements Path {
 
     @Override
     public Path resolve(Path other) {
-        return resolve(objectPath);
+        if (other instanceof MantaPath) {
+            MantaPath otherMantaPath = (MantaPath)other;
+            return resolve(otherMantaPath.objectPath);
+        } else {
+            return resolve(other.toString());
+        }
     }
 
     @Override
     public Path resolve(String other) {
-        return null;
+        final String resolved;
+
+        if (objectPath.isEmpty()) {
+            resolved = resolveObjectPath(other);
+        } else if (other.isEmpty()) {
+            resolved = resolveObjectPath(objectPath);
+        } else if (other.charAt(0) != separatorChar) {
+            resolved = resolveObjectPath(objectPath + separator + other);
+        } else {
+            resolved = resolveObjectPath(other);
+        }
+
+        return new MantaPath(resolved, fileSystem, mantaClient);
     }
 
     protected String resolveObjectPath(String objectPath) {

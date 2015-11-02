@@ -82,7 +82,8 @@ public class PathOps {
         if (expected == null) {
             Assert.assertNull(result);
         } else {
-            Assert.assertNotNull(String.format("Expected: %s", expected), result);
+            String msg = String.format("Expected: [%s] Actually: [%s]", expected, result);
+            Assert.assertNotNull(msg, result);
             Assert.assertEquals(expected, result.toString());
         }
     }

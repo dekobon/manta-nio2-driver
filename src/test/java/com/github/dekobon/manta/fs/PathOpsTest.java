@@ -78,9 +78,9 @@ public class PathOpsTest {
                 .starts("/")
                 .starts("/foo")
                 .starts("/foo/bar")
-                .notStarts("/f")
-                .notStarts("foo")
-                .notStarts("foo/bar");
+                .starts("foo")
+                .starts("foo/bar")
+                .notStarts("/f");
         test("foo")
                 .starts("foo")
                 .notStarts("")
@@ -88,9 +88,9 @@ public class PathOpsTest {
         test("foo/bar")
                 .starts("foo")
                 .starts("foo/bar")
-                .notStarts("f")
-                .notStarts("/foo")
-                .notStarts("/foo/bar");
+                .starts("/foo")
+                .starts("/foo/bar")
+                .notStarts("f");
         test("")
                 .starts("")
                 .notStarts("/");
@@ -201,12 +201,12 @@ public class PathOpsTest {
                 .resolve("/foo", "/foo")
                 .resolve("", "/tmp");
         test("tmp")
-                .resolve("foo", "tmp/foo")
+                .resolve("foo", "/tmp/foo")
                 .resolve("/foo", "/foo")
-                .resolve("", "tmp");
+                .resolve("", "/tmp");
         test("")
-                .resolve("", "")
-                .resolve("foo", "foo")
+                .resolve("", "/")
+                .resolve("foo", "/foo")
                 .resolve("/foo", "/foo");
     }
 
