@@ -4,7 +4,6 @@ import com.github.dekobon.manta.fs.config.ConfigContext;
 import com.github.dekobon.manta.fs.config.SystemSettingsConfigContext;
 import com.joyent.manta.client.MantaClient;
 import org.junit.Assert;
-import org.junit.Test;
 
 import java.io.IOException;
 import java.net.URI;
@@ -56,6 +55,8 @@ public class PathOps {
             MantaFileSystem fileSystem = (MantaFileSystem) provider.newFileSystem(mantaPath, null);
             MantaClient client = MantaClient.newInstance(config);
             path = new MantaPath(first, fileSystem, null, more);
+        } catch (InvalidPathException e) {
+            exc = e;
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

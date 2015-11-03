@@ -4,12 +4,10 @@ import com.joyent.manta.client.MantaClient;
 import com.joyent.manta.client.MantaObject;
 import com.joyent.manta.exception.MantaClientHttpResponseException;
 import com.joyent.manta.exception.MantaCryptoException;
-import org.apache.commons.io.FileSystemUtils;
 import org.apache.commons.io.FilenameUtils;
-import org.apache.commons.io.filefilter.FileFilterUtils;
+import org.apache.commons.lang3.StringUtils;
 
 import java.io.File;
-import java.io.FileFilter;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.*;
@@ -41,11 +39,12 @@ public class MantaPath implements Path {
                 '/' : fileSystem.getSeparator().charAt(0);
         this.separator = new String(new char[] { separatorChar });
         this.objectPath = buildObjectPath(first, more);
+        validatePath(objectPath);
     }
 
     protected String buildObjectPath(String first, String... more) {
         if (more == null || more.length == 0) {
-            return first;
+            return normalizeObjectPath(first);
         }
 
         // Don't pre add first if it is the separator, otherwise we will get a path like //foo
@@ -84,10 +83,24 @@ public class MantaPath implements Path {
         // When we've excluded all of the possible extra parts, we can't append double separators together,
         // so we just return the value of first.
         } else if (builtPath.isEmpty()) {
-            return first;
+            return normalizeObjectPath(first);
         } else {
             return builtPath;
         }
+    }
+
+    /**
+     * Checks a given path string to see if it contains forbidden characters.
+     * @param aObjectPath path string to check for invalid characters
+     * @throws InvalidPathException thrown when an invalid character is detected
+     */
+    protected static void validatePath(String aObjectPath) {
+        final int badCharPos = aObjectPath.indexOf("\u0000");
+        if (badCharPos >= 0) {
+            throw new InvalidPathException(aObjectPath,
+                    "Path included character \\u0000", badCharPos);
+        }
+
     }
 
     @Override
@@ -114,7 +127,7 @@ public class MantaPath implements Path {
         // There is no filename available for the root directory
         if (objectPath.equals(fileSystem.rootDirectory().toString())) return null;
 
-        String normalized = FilenameUtils.normalizeNoEndSeparator(objectPath, true);
+        String normalized = normalizeObjectPath(objectPath);
         String fileName = FilenameUtils.getBaseName(normalized);
         return new MantaPath(fileName, fileSystem, mantaClient);
     }
@@ -125,8 +138,14 @@ public class MantaPath implements Path {
         if (objectPath.equals(fileSystem.rootDirectory().toString())) return null;
         // We imitate the behavior of UnixPath in these cases
         if (objectPath.equals(".") || objectPath.equals("..")) return null;
+        // There is no parent when we have an empty path
+        if (objectPath.isEmpty()) return null;
 
-        String normalized = FilenameUtils.normalizeNoEndSeparator(objectPath, true);
+        String[] subPaths = subPaths();
+
+        if (subPaths.length < 2) return null;
+
+        String normalized = normalizeObjectPath(objectPath);
         String parent = FilenameUtils.getFullPathNoEndSeparator(normalized);
 
         return new MantaPath(parent, fileSystem, mantaClient);
@@ -134,17 +153,68 @@ public class MantaPath implements Path {
 
     @Override
     public int getNameCount() {
-        return 0;
+        if (this.equals(fileSystem.rootDirectory())) return 0;
+
+        return subPaths().length;
     }
 
     @Override
     public Path getName(int index) {
-        return null;
+        if (index < 0) throw new IllegalArgumentException("index must be above 0");
+        String[] subPaths = subPaths();
+        if (index > subPaths.length) throw new IllegalArgumentException(
+                "index must not be greater than the number of elements available");
+
+        String namePath = subPaths.length > 0 ? subPaths[index] : "";
+
+        return new MantaPath(namePath, fileSystem, mantaClient);
     }
 
     @Override
     public Path subpath(int beginIndex, int endIndex) {
-        return null;
+        if (beginIndex < 0) throw new IllegalArgumentException(
+                "beginIndex must be above 0");
+
+        if (endIndex < 0) throw new IllegalArgumentException(
+                "endIndex must be above 0");
+
+        String[] subPaths = subPaths();
+
+        if (beginIndex > subPaths.length) throw new IllegalArgumentException(
+                "beginIndex is greater than the number of elements available");
+
+        if (endIndex <= beginIndex) throw new IllegalArgumentException(
+                "endIndex must be less or equal to beginIndex");
+
+        // On the edge case of an subpathing an empty path, return self
+        if (objectPath.isEmpty() && beginIndex == 0 && endIndex == 1) {
+            return this;
+        }
+
+        if (endIndex > subPaths.length) {
+            throw new IllegalArgumentException(
+                    "endIndex must not be greater than the number of elements available");
+        }
+
+        StringBuilder builder = new StringBuilder();
+
+        for (int i = beginIndex; i < endIndex; i++) {
+            String part = subPaths[i];
+
+            builder.append(part);
+
+            if (i < endIndex - 1) {
+                builder.append(separator);
+            }
+        }
+
+        return new MantaPath(builder.toString(), fileSystem, mantaClient);
+    }
+
+    protected String[] subPaths() {
+        if (objectPath == null) return null;
+
+        return StringUtils.split(objectPath, separatorChar);
     }
 
     @Override
@@ -167,7 +237,7 @@ public class MantaPath implements Path {
         String resolveOtherWithSeparator = resolveOther.endsWith(separator) ?
                 resolveOther : resolveOther + separator;
         String resolve = resolveObjectPath(objectPath);
-        String resolveWithSeparator = resolve.endsWith("/") ?
+        String resolveWithSeparator = resolve.endsWith(separator) ?
                 resolve : resolve + separator;
 
         return resolveWithSeparator.startsWith(resolveOtherWithSeparator);
@@ -175,12 +245,7 @@ public class MantaPath implements Path {
 
     @Override
     public boolean endsWith(Path other) {
-        if (other instanceof MantaPath) {
-            MantaPath otherMantaPath = (MantaPath)other;
-            return startsWith(otherMantaPath.objectPath);
-        } else {
-            return endsWith(other.toString());
-        }
+        return endsWith(other.toString());
     }
 
     @Override
@@ -189,27 +254,70 @@ public class MantaPath implements Path {
         if (objectPath.isEmpty() && other.equals(separator)) return false;
         if (other == null || other.isEmpty()) return false;
 
-        String resolveOther = resolveObjectPath(other);
-        String resolveOtherWithSeparator = resolveOther.endsWith(separator) ?
-                resolveOther : resolveOther + separator;
-        String resolve = resolveObjectPath(objectPath);
-        String resolveWithSeparator = resolve.endsWith("/") ?
-                resolve : resolve + separator;
-
-        // if the comparison path is absolute, then we compare from the start
+        /* Just do a simple equality if we have a fully specified path on other
+         * Example:
+         *   objectPath: /foo/bar -> other: /bar => false
+         *   objectPath: /foo/bar -> other: /foo/bar => true
+         */
         if (other.startsWith(separator)) {
-            return resolveWithSeparator.startsWith(resolveOtherWithSeparator);
-        } else {
-            return resolveWithSeparator.endsWith(resolveOtherWithSeparator);
+            return objectPath.equals(other);
         }
+
+        String[] subPaths = subPaths();
+        String[] otherPaths = StringUtils.split(other, separatorChar);
+
+        int sizeDiff = subPaths.length - otherPaths.length;
+
+        // if the other sizes are greater than the subpaths, it's false
+        if (sizeDiff < 0) return false;
+
+        // if there are no path separators, just do a normal ends with [foo, foo]
+        if (subPaths.length == 0 && otherPaths.length == 0) return objectPath.endsWith(other);
+
+        // If there were no path separators in other, but in objectPath [/foo/bar, bar]
+        if (subPaths.length >= 0 && otherPaths.length == 0) {
+            return subPaths[subPaths.length-1].endsWith(other);
+        }
+
+        int subPathsIndex = subPaths.length - 1;
+        int otherPathsIndex = otherPaths.length - 1;
+
+        while (subPathsIndex >= 0 && otherPathsIndex >= 0) {
+            final String lastSubPath = subPaths[subPathsIndex];
+            final String lastOtherPath = otherPaths[otherPathsIndex];
+
+            if (!lastSubPath.equals(lastOtherPath)) return false;
+
+            subPathsIndex--;
+            otherPathsIndex--;
+        }
+
+        return true;
     }
 
     @Override
     public Path normalize() {
-        final String resolve = resolveObjectPath(objectPath);
-        final String normalized = FilenameUtils.normalizeNoEndSeparator(resolve, true);
-
+        String normalized = normalizeObjectPath(objectPath);
         return new MantaPath(normalized, fileSystem, mantaClient);
+    }
+
+    protected String normalizeObjectPath(String aObjectPath) {
+        final String resolve;
+
+        if (!aObjectPath.isEmpty() && aObjectPath.charAt(0) == separatorChar) {
+            resolve = resolveObjectPath(aObjectPath);
+        } else {
+            resolve = aObjectPath;
+        }
+
+        String normalized = FilenameUtils.normalizeNoEndSeparator(resolve, true);
+
+        if (normalized == null) {
+            return FilenameUtils.normalizeNoEndSeparator(resolveObjectPath(aObjectPath), true);
+        } else {
+            return normalized;
+        }
+
     }
 
     @Override
@@ -226,7 +334,11 @@ public class MantaPath implements Path {
     public Path resolve(String other) {
         final String resolved;
 
-        if (objectPath.isEmpty()) {
+        if (objectPath.isEmpty() && other.isEmpty()) {
+            resolved = "";
+        } else if (objectPath.isEmpty() && other.charAt(0) != separatorChar) {
+            resolved = resolveObjectPath(other);
+        } else if (objectPath.isEmpty()) {
             resolved = resolveObjectPath(other);
         } else if (other.isEmpty()) {
             resolved = resolveObjectPath(objectPath);
@@ -240,18 +352,22 @@ public class MantaPath implements Path {
     }
 
     protected String resolveObjectPath(String objectPath) {
+        // We don't include this in the switch because separator is not static final
+        if (objectPath.equals(separator)) return separator;
+
         switch (objectPath) {
-            case "/":
-                return "/";
+            case "":
+                return "";
             case "..":
-                return "/";
+                return separator;
             case ".":
-                return "/";
+                return separator;
         }
 
         String[] parts = objectPath.split(separator);
         StringBuilder builder = new StringBuilder();
 
+        boolean startingSeparator = objectPath.startsWith(separator);
         boolean trailingSeparator = objectPath.endsWith(separator);
         for (int i = 0; i < parts.length; i++) {
             final String part = parts[i];
@@ -269,7 +385,12 @@ public class MantaPath implements Path {
                 continue;
             }
 
-            builder.append(separator);
+            if (builder.length() == 0 && startingSeparator) {
+                builder.append(separator);
+            } else if (builder.length() > 0){
+                builder.append(separator);
+            }
+
             builder.append(part);
         }
 
@@ -291,7 +412,26 @@ public class MantaPath implements Path {
 
     @Override
     public Path relativize(Path other) {
-        return null;
+        if (objectPath.isEmpty()) return other;
+
+        String otherPath = other.toString();
+
+        String relativePath = null;
+
+        // Two equal paths
+        if (objectPath.equals(otherPath)) {
+            relativePath = "";
+        // Handles two absolute paths
+        } else if (objectPath.startsWith(separator) && otherPath.startsWith(separator)) {
+            String diff = StringUtils.removeStart(otherPath, objectPath);
+            relativePath = StringUtils.removeStart(diff, separator);
+        } else {
+            String[] subPaths = subPaths();
+            //String[] otherPaths =
+
+        }
+
+        return new MantaPath(relativePath, fileSystem, mantaClient);
     }
 
     @Override
@@ -319,7 +459,8 @@ public class MantaPath implements Path {
     }
 
     @Override
-    public WatchKey register(WatchService watcher, WatchEvent.Kind<?>[] events, WatchEvent.Modifier... modifiers) throws IOException {
+    public WatchKey register(WatchService watcher, WatchEvent.Kind<?>[] events,
+                             WatchEvent.Modifier... modifiers) throws IOException {
         throw new UnsupportedOperationException("Not implemented yet");
     }
 
