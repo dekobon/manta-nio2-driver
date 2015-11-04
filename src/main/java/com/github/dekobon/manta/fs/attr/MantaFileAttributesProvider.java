@@ -47,6 +47,7 @@ public class MantaFileAttributesProvider extends BasicFileAttributesProvider {
         final Date date;
 
         try {
+            // TODO: Change when this is finished: https://github.com/joyent/java-manta/issues/33
             date = HTTP_DATE_FORMAT.parse(httpMtime);
         } catch (ParseException e) {
             LOG.warn("Unable to parse last modified time [{}] for object: {}",

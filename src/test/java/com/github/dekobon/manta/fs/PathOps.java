@@ -2,6 +2,9 @@ package com.github.dekobon.manta.fs;
 
 import com.github.dekobon.manta.fs.config.ConfigContext;
 import com.github.dekobon.manta.fs.config.SystemSettingsConfigContext;
+import com.github.dekobon.manta.fs.old.MantaFileSystem;
+import com.github.dekobon.manta.fs.old.MantaFileSystemProvider;
+import com.github.dekobon.manta.fs.old.MantaPath;
 import com.joyent.manta.client.MantaClient;
 import org.junit.Assert;
 
