@@ -1,6 +1,7 @@
 package com.github.dekobon.manta.fs;
 
-import org.junit.Test;
+import org.testng.annotations.Test;
+
 import static com.github.dekobon.manta.fs.PathOps.test;
 
 public class PathOpsTest {
@@ -286,17 +287,17 @@ public class PathOpsTest {
     @Test
     public void normalizeSingleRootNode() {
         test("/foo").normalize("/foo");
-        test("foo").normalize("/foo");
+        test("foo").normalize("foo");
     }
 
     @Test
     public void normalizeCurrentDirRef() {
-        test(".").normalize("/");
+        test(".").normalize("");
     }
 
     @Test
     public void normalizeBackDirRef() {
-        test("..").normalize("/");
+        test("..").normalize("..");
     }
 
     @Test

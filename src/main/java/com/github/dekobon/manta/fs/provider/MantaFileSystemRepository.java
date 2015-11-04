@@ -27,11 +27,17 @@ public class MantaFileSystemRepository extends FileSystemRepositoryBase {
     @Override
     public FileSystemDriver createDriver(final URI uri,
                                          final Map<String, ?> env)  throws IOException {
-        final ConfigContext mapContext = new MapConfigContext(env);
-        final ConfigContext config = new SystemSettingsConfigContext(mapContext);
+        final ConfigContext config;
+        if (env != null && !env.isEmpty()) {
+            final ConfigContext mapContext = new MapConfigContext(env);
+            config = new SystemSettingsConfigContext(mapContext);
+        } else {
+            config =  new SystemSettingsConfigContext();
+        }
+
         final MantaClient client = MantaClient.newInstance(config);
         final MantaFileStore fileStore = new MantaFileStore(
                 client, factoryProvider.getAttributesFactory());
-        return new MantaFileSystemDriver(fileStore, factoryProvider, client);
+        return new MantaFileSystemDriver(config, fileStore, factoryProvider, client);
     }
 }

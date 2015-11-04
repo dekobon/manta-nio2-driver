@@ -2,17 +2,18 @@ package com.github.dekobon.manta.fs;
 
 import com.github.dekobon.manta.fs.config.ConfigContext;
 import com.github.dekobon.manta.fs.config.SystemSettingsConfigContext;
-import com.github.dekobon.manta.fs.old.MantaFileSystem;
-import com.github.dekobon.manta.fs.old.MantaFileSystemProvider;
-import com.github.dekobon.manta.fs.old.MantaPath;
-import com.joyent.manta.client.MantaClient;
+import com.github.dekobon.manta.fs.provider.MantaFileSystemProvider;
+import com.github.dekobon.manta.fs.provider.MantaFileSystemRepository;
+import com.github.fge.filesystem.provider.FileSystemRepository;
 import org.junit.Assert;
 
 import java.io.IOException;
 import java.net.URI;
-import java.nio.file.FileSystems;
+import java.nio.file.FileSystem;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
+import java.nio.file.spi.FileSystemProvider;
+import java.util.Collections;
 
 /**
  * Adapted from: http://hg.openjdk.java.net/jdk8/jdk8/jdk/file/tip/test/java/nio/file/Path/PathOps.java
@@ -44,25 +45,34 @@ import java.nio.file.Path;
 public class PathOps {
     static final java.io.PrintStream out = System.out;
 
+    private final static FileSystemRepository repository = new MantaFileSystemRepository();
+    private final static FileSystemProvider provider = new MantaFileSystemProvider(repository);
+    private final static FileSystem fileSystem;
+
     private String input;
     private Path path;
     private Exception exc;
 
-    private PathOps(String first, String... more) {
-        out.println();
-        input = first;
+    static {
         try {
             ConfigContext config = new SystemSettingsConfigContext();
-            MantaFileSystemProvider provider = new MantaFileSystemProvider(config);
-            URI mantaPath = URI.create(String.format("manta://%s/stor", config.getMantaUser()));
-            MantaFileSystem fileSystem = (MantaFileSystem) provider.newFileSystem(mantaPath, null);
-            MantaClient client = MantaClient.newInstance(config);
-            path = new MantaPath(first, fileSystem, null, more);
-        } catch (InvalidPathException e) {
-            exc = e;
+            URI uri = URI.create(String.format("manta://%s/stor", config.getMantaUser()));
+            fileSystem = provider.newFileSystem(uri, Collections.emptyMap());
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private PathOps(String first, String... more) {
+        out.println();
+        input = first;
+
+        try {
+            path = fileSystem.getPath(first, more);
+        } catch (InvalidPathException e) {
+            exc = e;
+        }
+
         out.format("%s -> %s", first, path);
 
         out.println();
@@ -134,7 +144,7 @@ public class PathOps {
     PathOps starts(String prefix) {
         out.format("test startsWith with %s\n", prefix);
         checkPath();
-        Path s = FileSystems.getDefault().getPath(prefix);
+        Path s = fileSystem.getPath(prefix);
         check(path.startsWith(s), true);
         return this;
     }
@@ -142,7 +152,7 @@ public class PathOps {
     PathOps notStarts(String prefix) {
         out.format("test not startsWith with %s\n", prefix);
         checkPath();
-        Path s = FileSystems.getDefault().getPath(prefix);
+        Path s = fileSystem.getPath(prefix);
         check(path.startsWith(s), false);
         return this;
     }
@@ -150,7 +160,7 @@ public class PathOps {
     PathOps ends(String suffix) {
         out.format("test endsWith %s\n", suffix);
         checkPath();
-        Path s = FileSystems.getDefault().getPath(suffix);
+        Path s = fileSystem.getPath(suffix);
         check(path.endsWith(s), true);
         return this;
     }
@@ -158,7 +168,7 @@ public class PathOps {
     PathOps notEnds(String suffix) {
         out.format("test not endsWith %s\n", suffix);
         checkPath();
-        Path s = FileSystems.getDefault().getPath(suffix);
+        Path s = fileSystem.getPath(suffix);
         check(path.endsWith(s), false);
         return this;
     }
@@ -194,7 +204,7 @@ public class PathOps {
     PathOps relativize(String other, String expected) {
         out.format("test relativize %s\n", other);
         checkPath();
-        Path that = FileSystems.getDefault().getPath(other);
+        Path that = fileSystem.getPath(other);
         check(path.relativize(that), expected);
         return this;
     }
@@ -236,7 +246,7 @@ public class PathOps {
     static void npes() {
         header("NullPointerException");
 
-        Path path = FileSystems.getDefault().getPath("foo");
+        Path path = fileSystem.getPath("foo");
 
         try {
             path.resolve((String)null);
