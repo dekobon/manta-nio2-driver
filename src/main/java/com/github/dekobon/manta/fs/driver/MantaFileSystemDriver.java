@@ -216,7 +216,7 @@ public class MantaFileSystemDriver extends UnixLikeFileSystemDriverBase {
         String target = findRealPath(path);
 
         try {
-            return mantaClient.head(target).getPath();
+            return mantaClient.head(target);
         } catch (MantaException e) {
             // TODO: Parameterize exception
             throw new IOException(e);

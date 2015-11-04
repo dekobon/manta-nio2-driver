@@ -5,6 +5,7 @@ import com.github.dekobon.manta.fs.config.SystemSettingsConfigContext;
 import com.github.dekobon.manta.fs.provider.MantaFileSystemProvider;
 import com.github.dekobon.manta.fs.provider.MantaFileSystemRepository;
 import com.github.fge.filesystem.provider.FileSystemRepository;
+import com.joyent.manta.exception.MantaException;
 import org.apache.commons.lang3.StringUtils;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -12,13 +13,18 @@ import org.testng.annotations.Test;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.URI;
-import java.nio.file.*;
+import java.nio.file.AccessDeniedException;
+import java.nio.file.DirectoryStream;
+import java.nio.file.FileSystem;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.attribute.FileTime;
 import java.nio.file.spi.FileSystemProvider;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-public class DirectoryListingTest {
+public class DirectoryTest {
     private final FileSystemRepository repository = new MantaFileSystemRepository();
     private final FileSystemProvider provider = new MantaFileSystemProvider(repository);
     private final FileSystem fileSystem;
@@ -33,7 +39,7 @@ public class DirectoryListingTest {
         }
     }
 
-    @Test(expectedExceptions = { AccessDeniedException.class })
+    @Test(groups = { "directory"}, expectedExceptions = { AccessDeniedException.class })
     public void listRootDirectory() throws IOException {
         Path rootPath = fileSystem.getPath("/");
         List<String> listing = listPath(rootPath);
@@ -41,7 +47,7 @@ public class DirectoryListingTest {
         listing.forEach(item -> System.out.println(item));
     }
 
-    @Test
+    @Test(groups = { "directory"})
     public void listUserDirectory() throws IOException {
         Path rootPath = fileSystem.getPath("~~");
         List<String> listing = listPath(rootPath);
@@ -60,7 +66,7 @@ public class DirectoryListingTest {
         }
     }
 
-    @Test(expectedExceptions = { AccessDeniedException.class })
+    @Test(groups = { "directory"}, expectedExceptions = { AccessDeniedException.class })
     public void listNonexistentDirectoryFromRoot() throws IOException {
         Path rootPath = fileSystem.getPath("/mymoneyisonthisnotbeinghere7");
         List<String> listing = listPath(rootPath);
@@ -68,12 +74,28 @@ public class DirectoryListingTest {
         listing.forEach(item -> System.out.println(item));
     }
 
-    @Test(expectedExceptions = { FileNotFoundException.class })
+    @Test(groups = { "directory"}, expectedExceptions = { FileNotFoundException.class })
     public void listNonexistentDirectoryFromHome() throws IOException {
         Path rootPath = fileSystem.getPath("~~/mymoneyisonthisnotbeinghere2");
         List<String> listing = listPath(rootPath);
 
         listing.forEach(item -> System.out.println(item));
+    }
+
+    @Test(groups = { "directory" })
+    public void isDirectoryMarkedAsDirectory() {
+        Path stor = fileSystem.getPath("~~/stor");
+        Assert.assertTrue(Files.isDirectory(stor),
+                "This is a directory and it should be marked as such");
+    }
+
+    @Test(groups = { "directory" })
+    public void verifyLastModifiedTime() throws IOException, MantaException {
+        Path file = fileSystem.getPath("~~/stor");
+        FileTime time = Files.getLastModifiedTime(file);
+
+        // TODO: Actually create a directory and check the time
+        Assert.assertNotNull(time);
     }
 
     public static List<String> listPath(Path directory) throws IOException {

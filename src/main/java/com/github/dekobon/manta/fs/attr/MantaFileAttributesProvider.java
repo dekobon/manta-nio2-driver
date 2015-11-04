@@ -34,9 +34,9 @@ public class MantaFileAttributesProvider extends BasicFileAttributesProvider {
 
     @Override
     public FileTime lastModifiedTime() {
-        String httpMtime = mantaObject.getMtime();
+        String lastModified = mantaObject.getHttpHeaders().getLastModified();
 
-        if (httpMtime == null) {
+        if (lastModified == null) {
             if (LOG.isWarnEnabled()) {
                 LOG.warn("No last modified time for object: {}",
                          mantaObject.getPath());
@@ -48,10 +48,10 @@ public class MantaFileAttributesProvider extends BasicFileAttributesProvider {
 
         try {
             // TODO: Change when this is finished: https://github.com/joyent/java-manta/issues/33
-            date = HTTP_DATE_FORMAT.parse(httpMtime);
+            date = HTTP_DATE_FORMAT.parse(lastModified);
         } catch (ParseException e) {
             LOG.warn("Unable to parse last modified time [{}] for object: {}",
-                    httpMtime, mantaObject.getPath());
+                    lastModified, mantaObject.getPath());
             return FileTime.from(Instant.EPOCH);
         }
 
