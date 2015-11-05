@@ -4,7 +4,7 @@ import org.testng.annotations.Test;
 
 import static com.github.dekobon.manta.fs.PathOps.test;
 
-public class PathOpsTest {
+public class PathTest {
     @Test
     public void pathConstruction() {
         test("/").string("/");

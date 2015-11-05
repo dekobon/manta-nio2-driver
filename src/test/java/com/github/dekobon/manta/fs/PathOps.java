@@ -56,7 +56,7 @@ public class PathOps {
     static {
         try {
             ConfigContext config = new SystemSettingsConfigContext();
-            URI uri = URI.create(String.format("manta://%s/stor", config.getMantaUser()));
+            URI uri = URI.create(String.format("manta://%s", config.getMantaUser()));
             fileSystem = provider.newFileSystem(uri, Collections.emptyMap());
         } catch (IOException e) {
             throw new RuntimeException(e);
