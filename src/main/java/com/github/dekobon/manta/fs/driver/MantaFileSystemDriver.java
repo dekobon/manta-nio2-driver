@@ -11,11 +11,18 @@ import com.joyent.manta.exception.MantaException;
 
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.file.*;
+import java.nio.channels.SeekableByteChannel;
+import java.nio.file.AccessDeniedException;
+import java.nio.file.AccessMode;
+import java.nio.file.CopyOption;
+import java.nio.file.DirectoryStream;
+import java.nio.file.FileStore;
+import java.nio.file.NoSuchFileException;
+import java.nio.file.OpenOption;
+import java.nio.file.Path;
 import java.nio.file.attribute.FileAttribute;
 import java.util.Collection;
 import java.util.Iterator;
@@ -189,9 +196,7 @@ public class MantaFileSystemDriver extends UnixLikeFileSystemDriverBase {
         } catch (MantaClientHttpResponseException e) {
             switch (e.getStatusCode()) {
                 case 404:
-                    throw new FileNotFoundException(
-                            String.format("Couldn't find file at path: %s",
-                                          target));
+                    throw new NoSuchFileException(target);
                 case 403:
                 case 401:
                     throw new AccessDeniedException(target, null,
@@ -221,6 +226,26 @@ public class MantaFileSystemDriver extends UnixLikeFileSystemDriverBase {
             // TODO: Parameterize exception
             throw new IOException(e);
         }
+    }
+
+    @Override
+    public SeekableByteChannel newByteChannel(final Path path,
+                                              final Set<? extends OpenOption> options,
+                                              final FileAttribute<?>... attrs)
+            throws IOException
+    {
+        final String target = findRealPath(path);
+        final MantaObject mantaObject;
+
+//        try {
+            // First fork logic based on if the file path exists
+
+            throw new UnsupportedOperationException("Implement me");
+
+//        } catch (MantaException e) {
+//            // TODO: Parameterize exception
+//            throw new IOException(e);
+//        }
     }
 
     public String findRealPath(final Path path) throws IOException {

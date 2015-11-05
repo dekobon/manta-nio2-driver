@@ -10,13 +10,13 @@ import org.apache.commons.lang3.StringUtils;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.AccessDeniedException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.FileSystem;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.attribute.FileTime;
 import java.nio.file.spi.FileSystemProvider;
@@ -74,7 +74,7 @@ public class DirectoryTest {
         listing.forEach(item -> System.out.println(item));
     }
 
-    @Test(groups = { "directory"}, expectedExceptions = { FileNotFoundException.class })
+    @Test(groups = { "directory"}, expectedExceptions = { NoSuchFileException.class })
     public void listNonexistentDirectoryFromHome() throws IOException {
         Path rootPath = fileSystem.getPath("~~/mymoneyisonthisnotbeinghere2");
         List<String> listing = listPath(rootPath);

@@ -13,6 +13,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.FileSystem;
@@ -56,7 +57,7 @@ public class FileTest {
     }
 
     @Test(groups = { "file" })
-    public void canReadFile() throws IOException, MantaException {
+    public void canReadAsciiFile() throws IOException, MantaException {
         final String fileContents = "Hello World";
         String testFilePath = uploadTestFile("read_file_test", fileContents);
 
@@ -67,6 +68,33 @@ public class FileTest {
             Assert.assertEquals(scanner.nextLine(), fileContents,
                     String.format("File contents did not equal: %s", fileContents));
         }
+    }
+
+    @Test(groups = { "file" })
+    public void canReadUTF8AsciiFile() throws IOException, MantaException {
+        final String fileContents = "\u3053\u3093\u306B\u3061\u306F";
+        String testFilePath = uploadTestFile("UTF8\u30C6\u30B9\u30C8\u30D5\u30A1\u30A4\u30EB", fileContents);
+
+        Path fileToRead = fileSystem.getPath(testFilePath);
+        try (Scanner scanner = new Scanner(fileToRead)) {
+
+            Assert.assertTrue(scanner.hasNext(), "There should be a first line in the file");
+            Assert.assertEquals(scanner.nextLine(), fileContents,
+                    String.format("File contents did not equal: %s", fileContents));
+        }
+    }
+
+    @Test(groups = { "file" })
+    public void canReadBinaryFile() throws IOException, MantaException {
+        final byte[] content = new byte[] {
+                (byte) 0x00, (byte) 0xad, (byte) 0xdf, (byte) 0x45,
+                (byte) 0x53, (byte) 0x4a, (byte) 0xf8, (byte) 0xff };
+        String testFilePath = uploadTestFile("read_file_test", content);
+
+        Path fileToRead = fileSystem.getPath(testFilePath);
+        final byte[] actualBytes = Files.readAllBytes(fileToRead);
+
+        Assert.assertEquals(actualBytes, content);
     }
 
     @Test(groups = { "file" })
@@ -81,8 +109,16 @@ public class FileTest {
         FileTime time = Files.getLastModifiedTime(file);
 
         Assert.assertTrue(time.toInstant().isAfter(now) || time.toInstant().equals(now),
-            String.format("File should have been created after %s was created %s",
-                    now, time));
+                String.format("File should have been created after %s was created %s",
+                        now, time));
+    }
+
+    @Test(groups = { "file" })
+    public void createTempFile() throws IOException, MantaException {
+        Path dir = fileSystem.getPath(testDirectory);
+        Path temp = Files.createTempFile(dir, "prefix", "suffix");
+
+        MantaObject head = mantaClient.head(temp.toString());
     }
 
     @Test(groups = { "file" })
@@ -92,6 +128,24 @@ public class FileTest {
         Path file = fileSystem.getPath(testFilePath);
         Assert.assertTrue(Files.isRegularFile(file),
                 "This is a file and it should be marked as such");
+    }
+
+    @Test(groups = { "file" })
+    public void canCopyFile() throws IOException, MantaException {
+        String fileContents = "Hello World";
+        String testFilePath = uploadTestFile("copy_file_test", fileContents);
+        Path source = fileSystem.getPath(testFilePath);
+        Path target = fileSystem.getPath(String.format("%s/%s",
+                testDirectory, "destination"));
+
+        Files.copy(source, target);
+
+        try (Scanner scanner = new Scanner(target)) {
+
+            Assert.assertTrue(scanner.hasNext(), "There should be a first line in the file");
+            Assert.assertEquals(scanner.nextLine(), fileContents,
+                    String.format("File contents did not equal: %s", fileContents));
+        }
     }
 
     /**
@@ -104,6 +158,24 @@ public class FileTest {
         MantaObject uploadObject = new MantaObject(testFilePath);
 
         uploadObject.setDataInputString(contents);
+        mantaClient.put(uploadObject);
+
+        // This will throw an exception if the file isn't on Manta
+        MantaObject headObject = mantaClient.head(testFilePath);
+
+        return headObject.getPath();
+    }
+
+    /**
+     * Manually uploads a file to Manta, so that we can test reads.
+     */
+    protected String uploadTestFile(String testFilename, byte[] contents)
+            throws IOException, MantaException {
+        // Manually upload a file to Manta, so that we can test read
+        String testFilePath = String.format("%s/%s", testDirectory, testFilename);
+        MantaObject uploadObject = new MantaObject(testFilePath);
+
+        uploadObject.setDataInputStream(new ByteArrayInputStream(contents));
         mantaClient.put(uploadObject);
 
         // This will throw an exception if the file isn't on Manta
