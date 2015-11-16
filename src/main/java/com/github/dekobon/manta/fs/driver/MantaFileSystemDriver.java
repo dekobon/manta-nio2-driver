@@ -2,7 +2,6 @@ package com.github.dekobon.manta.fs.driver;
 
 import com.github.dekobon.manta.fs.config.ConfigContext;
 import com.github.fge.filesystem.driver.UnixLikeFileSystemDriverBase;
-import com.github.fge.filesystem.exceptions.IsDirectoryException;
 import com.github.fge.filesystem.provider.FileSystemFactoryProvider;
 import com.joyent.manta.client.MantaClient;
 import com.joyent.manta.client.MantaObject;
@@ -57,20 +56,13 @@ public class MantaFileSystemDriver extends UnixLikeFileSystemDriverBase {
                                       final Set<OpenOption> options)
             throws IOException {
         final String target = findRealPath(path);
-        final MantaObject mantaObject;
 
         try {
-            mantaObject = mantaClient.get(target);
-        } catch (MantaException e) {
+            return mantaClient.getAsInputStream(target);
+        } catch (MantaException | MantaClientHttpResponseException e) {
             // TODO: Add parameters
             throw new RuntimeException(e);
         }
-
-        if (mantaObject.isDirectory()) {
-            throw new IsDirectoryException(target);
-        }
-
-        return mantaObject.getDataInputStream();
     }
 
     @Nonnull
@@ -78,10 +70,8 @@ public class MantaFileSystemDriver extends UnixLikeFileSystemDriverBase {
     public OutputStream newOutputStream(final Path path,
                                         final Set<OpenOption> options)
             throws IOException {
-        final String target = findRealPath(path);
-        final MantaObject mantaObject = new MantaObject(target);
-
-        throw new UnsupportedOperationException("Waiting on https://github.com/joyent/java-manta/issues/34");
+        // Implement me using temp files
+        throw new UnsupportedOperationException("Not implemented");
     }
 
     @Nonnull
@@ -235,17 +225,7 @@ public class MantaFileSystemDriver extends UnixLikeFileSystemDriverBase {
             throws IOException
     {
         final String target = findRealPath(path);
-        final MantaObject mantaObject;
-
-//        try {
-            // First fork logic based on if the file path exists
-
-            throw new UnsupportedOperationException("Implement me");
-
-//        } catch (MantaException e) {
-//            // TODO: Parameterize exception
-//            throw new IOException(e);
-//        }
+        return mantaClient.getSeekableByteChannel(target);
     }
 
     public String findRealPath(final Path path) throws IOException {

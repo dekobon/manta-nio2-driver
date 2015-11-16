@@ -15,10 +15,12 @@ import org.testng.annotations.Test;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.attribute.FileTime;
 import java.nio.file.spi.FileSystemProvider;
 import java.time.Instant;
@@ -40,7 +42,7 @@ public class FileTest {
         try {
             URI uri = URI.create(String.format("manta://%s", config.getMantaUser()));
             fileSystem = provider.newFileSystem(uri, Collections.emptyMap());
-            mantaClient = MantaClient.newInstance(config);
+            mantaClient = new MantaClient(config);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -148,6 +150,10 @@ public class FileTest {
         }
     }
 
+    public void canOpenMantaPath() {
+        Paths.get(URI.create("manta://"));
+    }
+
     /**
      * Manually uploads a file to Manta, so that we can test reads.
      */
@@ -155,10 +161,8 @@ public class FileTest {
             throws IOException, MantaException {
         // Manually upload a file to Manta, so that we can test read
         String testFilePath = String.format("%s/%s", testDirectory, testFilename);
-        MantaObject uploadObject = new MantaObject(testFilePath);
 
-        uploadObject.setDataInputString(contents);
-        mantaClient.put(uploadObject);
+        mantaClient.put(testFilePath, contents);
 
         // This will throw an exception if the file isn't on Manta
         MantaObject headObject = mantaClient.head(testFilePath);
@@ -173,10 +177,10 @@ public class FileTest {
             throws IOException, MantaException {
         // Manually upload a file to Manta, so that we can test read
         String testFilePath = String.format("%s/%s", testDirectory, testFilename);
-        MantaObject uploadObject = new MantaObject(testFilePath);
 
-        uploadObject.setDataInputStream(new ByteArrayInputStream(contents));
-        mantaClient.put(uploadObject);
+        try (InputStream bs = new ByteArrayInputStream(contents)) {
+            mantaClient.put(testFilePath, bs);
+        }
 
         // This will throw an exception if the file isn't on Manta
         MantaObject headObject = mantaClient.head(testFilePath);

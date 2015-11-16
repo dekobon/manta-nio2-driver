@@ -35,7 +35,7 @@ public class MantaFileSystemRepository extends FileSystemRepositoryBase {
             config =  new SystemSettingsConfigContext();
         }
 
-        final MantaClient client = MantaClient.newInstance(config);
+        final MantaClient client = new MantaClient(config);
         final MantaFileStore fileStore = new MantaFileStore(
                 client, factoryProvider.getAttributesFactory());
         return new MantaFileSystemDriver(config, fileStore, factoryProvider, client);
