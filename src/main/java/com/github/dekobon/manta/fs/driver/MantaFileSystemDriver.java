@@ -10,21 +10,14 @@ import com.joyent.manta.exception.MantaException;
 
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+import java.io.*;
+import java.net.URI;
 import java.nio.channels.SeekableByteChannel;
-import java.nio.file.AccessDeniedException;
-import java.nio.file.AccessMode;
-import java.nio.file.CopyOption;
-import java.nio.file.DirectoryStream;
-import java.nio.file.FileStore;
-import java.nio.file.NoSuchFileException;
-import java.nio.file.OpenOption;
-import java.nio.file.Path;
+import java.nio.file.*;
 import java.nio.file.attribute.FileAttribute;
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -40,6 +33,7 @@ public class MantaFileSystemDriver extends UnixLikeFileSystemDriverBase {
 
     protected final MantaClient mantaClient;
     protected final ConfigContext config;
+
 
     public MantaFileSystemDriver(final ConfigContext config,
                                  final FileStore fileStore,
@@ -137,6 +131,58 @@ public class MantaFileSystemDriver extends UnixLikeFileSystemDriverBase {
 
     @Override
     public void copy(Path source, Path target, Set<CopyOption> options) throws IOException {
+        if (isMantaPath(source) && isMantaPath(target)) {
+            copyFromMantaFileToMantaFile(source, target, options);
+        } else if (!isMantaPath(source) && isMantaPath(target)) {
+            copyFromAnyPathToMantaFile(source, target, options);
+        } else if (isMantaPath(source) && !isMantaPath(target)) {
+            copyFromMantaFileToAnyPath(source, target, options);
+        } else {
+            CopyOption[] copyOptions = new CopyOption[options.size()];
+            options.toArray(copyOptions);
+            Files.copy(source, target, copyOptions);
+        }
+    }
+
+    public boolean isMantaPath(final Path path) {
+        final URI uri = Objects.requireNonNull(path.toUri());
+        if (uri.getScheme() == null) {
+            return false;
+        } else {
+            final String mantaScheme = getFileStore().type();
+            return uri.getScheme().equals(mantaScheme);
+        }
+    }
+
+    protected void copyFromMantaFileToAnyPath(Path source, Path target, Set<CopyOption> options) throws IOException {
+        final String from = findRealPath(source);
+
+        try {
+            MantaObject mantaObject = mantaClient.get(from);
+            try (InputStream is = mantaObject.getDataInputStream()) {
+                Files.copy(is, target);
+            }
+        } catch (MantaException e) {
+            throw new IOException(e);
+        }
+    }
+
+    protected void copyFromAnyPathToMantaFile(Path source, Path target, Set<CopyOption> options) throws IOException {
+        final String to = findRealPath(target);
+
+        try (InputStream fs = Files.newInputStream(source);
+             InputStream is = new BufferedInputStream(fs)) {
+
+            MantaObject mantaObject = new MantaObject(to);
+            mantaObject.setDataInputStream(is);
+
+            mantaClient.put(mantaObject);
+        } catch (MantaException e) {
+            throw new IOException(e);
+        }
+    }
+
+    protected void copyFromMantaFileToMantaFile(Path source, Path target, Set<CopyOption> options) throws IOException {
         final String from = findRealPath(source);
         final String link = findRealPath(target);
 
