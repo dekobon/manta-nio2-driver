@@ -158,8 +158,7 @@ public class MantaFileSystemDriver extends UnixLikeFileSystemDriverBase {
         final String from = findRealPath(source);
 
         try {
-            MantaObject mantaObject = mantaClient.get(from);
-            try (InputStream is = mantaObject.getDataInputStream()) {
+            try (InputStream is = mantaClient.getAsInputStream(from)) {
                 Files.copy(is, target);
             }
         } catch (MantaException e) {
@@ -173,10 +172,7 @@ public class MantaFileSystemDriver extends UnixLikeFileSystemDriverBase {
         try (InputStream fs = Files.newInputStream(source);
              InputStream is = new BufferedInputStream(fs)) {
 
-            MantaObject mantaObject = new MantaObject(to);
-            mantaObject.setDataInputStream(is);
-
-            mantaClient.put(mantaObject);
+            mantaClient.put(to, is);
         } catch (MantaException e) {
             throw new IOException(e);
         }
