@@ -6,14 +6,24 @@ import com.github.fge.filesystem.provider.FileSystemFactoryProvider;
 import com.joyent.manta.client.MantaClient;
 import com.joyent.manta.client.MantaObject;
 import com.joyent.manta.exception.MantaClientHttpResponseException;
-import com.joyent.manta.exception.MantaException;
 
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
-import java.io.*;
+import java.io.BufferedInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.URI;
 import java.nio.channels.SeekableByteChannel;
-import java.nio.file.*;
+import java.nio.file.AccessDeniedException;
+import java.nio.file.AccessMode;
+import java.nio.file.CopyOption;
+import java.nio.file.DirectoryStream;
+import java.nio.file.FileStore;
+import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
+import java.nio.file.OpenOption;
+import java.nio.file.Path;
 import java.nio.file.attribute.FileAttribute;
 import java.util.Collection;
 import java.util.Iterator;
@@ -50,13 +60,7 @@ public class MantaFileSystemDriver extends UnixLikeFileSystemDriverBase {
                                       final Set<OpenOption> options)
             throws IOException {
         final String target = findRealPath(path);
-
-        try {
-            return mantaClient.getAsInputStream(target);
-        } catch (MantaException | MantaClientHttpResponseException e) {
-            // TODO: Add parameters
-            throw new RuntimeException(e);
-        }
+        return mantaClient.getAsInputStream(target);
     }
 
     @Nonnull
@@ -75,14 +79,7 @@ public class MantaFileSystemDriver extends UnixLikeFileSystemDriverBase {
             throws IOException {
         final String target = findRealPath(dir);
 
-        final Collection<MantaObject> objects;
-
-        try {
-            objects = mantaClient.listObjects(target);
-        } catch (MantaException e) {
-            // TODO: Set better exception params
-            throw new IOException(e);
-        }
+        final Collection<MantaObject> objects = mantaClient.listObjects(target);
 
         //noinspection AnonymousInnerClassWithTooManyMethods
         return new DirectoryStream<Path>() {
@@ -108,25 +105,13 @@ public class MantaFileSystemDriver extends UnixLikeFileSystemDriverBase {
     public void createDirectory(final Path dir, final FileAttribute<?>... attrs)
             throws IOException {
         final String target = findRealPath(dir);
-
-        try {
-            mantaClient.putDirectory(target, null);
-        } catch (MantaException e) {
-            // TODO: Paramaterize exception
-            throw new IOException(e);
-        }
+        mantaClient.putDirectory(target, null);
     }
 
     @Override
     public void delete(final Path path) throws IOException {
         final String target = findRealPath(path);
-
-        try {
-            mantaClient.deleteRecursive(target);
-        } catch (MantaException e) {
-            // TODO: Parameterize exception
-            throw new IOException(e);
-        }
+        mantaClient.deleteRecursive(target);
     }
 
     @Override
@@ -157,12 +142,8 @@ public class MantaFileSystemDriver extends UnixLikeFileSystemDriverBase {
     protected void copyFromMantaFileToAnyPath(Path source, Path target, Set<CopyOption> options) throws IOException {
         final String from = findRealPath(source);
 
-        try {
-            try (InputStream is = mantaClient.getAsInputStream(from)) {
-                Files.copy(is, target);
-            }
-        } catch (MantaException e) {
-            throw new IOException(e);
+        try (InputStream is = mantaClient.getAsInputStream(from)) {
+            Files.copy(is, target);
         }
     }
 
@@ -173,8 +154,6 @@ public class MantaFileSystemDriver extends UnixLikeFileSystemDriverBase {
              InputStream is = new BufferedInputStream(fs)) {
 
             mantaClient.put(to, is);
-        } catch (MantaException e) {
-            throw new IOException(e);
         }
     }
 
@@ -182,18 +161,13 @@ public class MantaFileSystemDriver extends UnixLikeFileSystemDriverBase {
         final String from = findRealPath(source);
         final String link = findRealPath(target);
 
-        try {
-            MantaObject sourceObject = mantaClient.head(from);
+        MantaObject sourceObject = mantaClient.head(from);
 
-            if (sourceObject.isDirectory()) {
-                // TODO: Write directory copy logic
-                throw new UnsupportedOperationException("Implement me");
-            } else {
-                mantaClient.putSnapLink(link, from, null);
-            }
-        } catch (MantaException e) {
-            // TODO: Parameterize exception
-            throw new IOException(e);
+        if (sourceObject.isDirectory()) {
+            // TODO: Write directory copy logic
+            throw new UnsupportedOperationException("Implement me");
+        } else {
+            mantaClient.putSnapLink(link, from, null);
         }
     }
 
@@ -241,9 +215,6 @@ public class MantaFileSystemDriver extends UnixLikeFileSystemDriverBase {
                             "Status Code: %d. Message: %s",
                             e.getStatusCode(), e.getStatusMessage()));
             }
-        } catch (MantaException e) {
-            // TODO: Parameterize exception
-            throw new IOException(e);
         }
     }
 
@@ -251,13 +222,8 @@ public class MantaFileSystemDriver extends UnixLikeFileSystemDriverBase {
     @Override
     public Object getPathMetadata(Path path) throws IOException {
         String target = findRealPath(path);
+        return mantaClient.head(target);
 
-        try {
-            return mantaClient.head(target);
-        } catch (MantaException e) {
-            // TODO: Parameterize exception
-            throw new IOException(e);
-        }
     }
 
     @Override
@@ -279,6 +245,7 @@ public class MantaFileSystemDriver extends UnixLikeFileSystemDriverBase {
 
     @Override
     public void close() throws IOException {
+        mantaClient.closeQuietly();
     }
 
     public ConfigContext getConfig() {
