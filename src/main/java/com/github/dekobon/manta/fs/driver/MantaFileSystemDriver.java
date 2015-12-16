@@ -25,11 +25,8 @@ import java.nio.file.NoSuchFileException;
 import java.nio.file.OpenOption;
 import java.nio.file.Path;
 import java.nio.file.attribute.FileAttribute;
-import java.util.Collection;
-import java.util.Iterator;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * @author Elijah Zupancic
@@ -77,28 +74,7 @@ public class MantaFileSystemDriver extends UnixLikeFileSystemDriverBase {
     public DirectoryStream<Path> newDirectoryStream(final Path dir,
                                                     final DirectoryStream.Filter<? super Path> filter)
             throws IOException {
-        final String target = findRealPath(dir);
-
-        final Collection<MantaObject> objects = mantaClient.listObjects(target);
-
-        //noinspection AnonymousInnerClassWithTooManyMethods
-        return new DirectoryStream<Path>() {
-            private final AtomicBoolean alreadyOpen = new AtomicBoolean(false);
-
-            @Override
-            public Iterator<Path> iterator() {
-                // required by the contract
-                if (alreadyOpen.getAndSet(true)) {
-                    throw new IllegalStateException();
-                }
-
-                return new MantaObjectPathIterator(dir, objects);
-            }
-
-            @Override
-            public void close() throws IOException {
-            }
-        };
+        return new MantaDirectoryStream(dir, mantaClient, this);
     }
 
     @Override
@@ -186,6 +162,7 @@ public class MantaFileSystemDriver extends UnixLikeFileSystemDriverBase {
 //                    "The root directory [/] is not accessible");
 //        }
 
+
         try {
             MantaObject object = mantaClient.head(target);
 
@@ -240,6 +217,7 @@ public class MantaFileSystemDriver extends UnixLikeFileSystemDriverBase {
         final Path real = path.toRealPath();
         final String pathString = real.toString();
 
+        // TODO: This is a blunt instrument - make me sharper
         return pathString.replace("~~", config.getMantaUser());
     }
 

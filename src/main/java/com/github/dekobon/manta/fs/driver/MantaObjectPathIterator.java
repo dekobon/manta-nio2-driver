@@ -1,28 +1,32 @@
 package com.github.dekobon.manta.fs.driver;
 
-import com.joyent.manta.client.MantaObject;
+import com.joyent.manta.client.MantaDirectoryListingIterator;
 
+import java.io.Closeable;
+import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Iterator;
+import java.util.Map;
+import java.util.Objects;
 
 /**
  * @author Elijah Zupancic
  * @since 1.0.0
  */
-public class MantaObjectPathIterator implements Iterator<Path> {
+public class MantaObjectPathIterator implements Iterator<Path>, Closeable {
     protected final Path dir;
-    protected final Iterator<MantaObject> internalIterator;
+    protected final String realDirPath;
+    protected final MantaFileSystemDriver driver;
+    protected final MantaDirectoryListingIterator internalIterator;
 
     public MantaObjectPathIterator(final Path dir,
-                                   final Iterable<MantaObject> mantaObjects) {
-        this.internalIterator = mantaObjects.iterator();
+                                   final MantaFileSystemDriver driver,
+                                   final MantaDirectoryListingIterator iterator)
+            throws IOException {
         this.dir = dir;
-    }
-
-    public MantaObjectPathIterator(final Path dir,
-                                   final Iterator<MantaObject> iterator) {
+        this.driver = driver;
+        this.realDirPath = driver.findRealPath(dir);
         this.internalIterator = iterator;
-        this.dir = dir;
     }
 
     @Override
@@ -32,11 +36,25 @@ public class MantaObjectPathIterator implements Iterator<Path> {
 
     @Override
     public Path next() {
-        MantaObject mantaObject = internalIterator.next();
-        if (mantaObject == null) {
+        Map<String, Object> properties = internalIterator.next();
+
+        if (properties == null) {
             return null;
         }
 
-        return dir.resolve(mantaObject.getPath());
+        final String name = Objects.toString(properties.get("name"));
+
+        if (properties == null) {
+            return null;
+        }
+
+        final String objPath = String.format("%s/%s", realDirPath, name);
+
+        return dir.resolve(objPath);
+    }
+
+    @Override
+    public void close() throws IOException {
+        internalIterator.close();
     }
 }
