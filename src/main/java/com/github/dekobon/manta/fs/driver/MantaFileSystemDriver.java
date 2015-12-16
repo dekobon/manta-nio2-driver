@@ -15,15 +15,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URI;
 import java.nio.channels.SeekableByteChannel;
-import java.nio.file.AccessDeniedException;
-import java.nio.file.AccessMode;
-import java.nio.file.CopyOption;
-import java.nio.file.DirectoryStream;
-import java.nio.file.FileStore;
-import java.nio.file.Files;
-import java.nio.file.NoSuchFileException;
-import java.nio.file.OpenOption;
-import java.nio.file.Path;
+import java.nio.file.*;
 import java.nio.file.attribute.FileAttribute;
 import java.util.Objects;
 import java.util.Set;
@@ -210,7 +202,20 @@ public class MantaFileSystemDriver extends UnixLikeFileSystemDriverBase {
             throws IOException
     {
         final String target = findRealPath(path);
-        return mantaClient.getSeekableByteChannel(target);
+
+        if (options.contains(StandardOpenOption.CREATE_NEW)) {
+            if (mantaClient.existsAndIsAccessible(target)) {
+                String msg = String.format("File already exists: %s", target);
+                throw new IOException(msg);
+            }
+        }
+
+        if (options.contains(StandardOpenOption.READ) &&
+            !options.contains(StandardOpenOption.WRITE)) {
+            return mantaClient.getSeekableByteChannel(target);
+        }
+
+        return new MantaTempSeekableByteChannel(target, mantaClient, options);
     }
 
     public String findRealPath(final Path path) throws IOException {

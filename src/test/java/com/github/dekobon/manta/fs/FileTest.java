@@ -2,11 +2,13 @@ package com.github.dekobon.manta.fs;
 
 import com.github.dekobon.manta.fs.config.ConfigContext;
 import com.github.dekobon.manta.fs.config.SystemSettingsConfigContext;
+import com.github.dekobon.manta.fs.driver.MantaTempSeekableByteChannel;
 import com.github.dekobon.manta.fs.provider.MantaFileSystemProvider;
 import com.github.dekobon.manta.fs.provider.MantaFileSystemRepository;
 import com.github.fge.filesystem.provider.FileSystemRepository;
 import com.joyent.manta.client.MantaClient;
 import com.joyent.manta.client.MantaObject;
+import com.joyent.manta.client.MantaSeekableByteChannel;
 import com.joyent.manta.exception.MantaException;
 import org.testng.Assert;
 import org.testng.annotations.AfterClass;
@@ -17,10 +19,13 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
+import java.nio.ByteBuffer;
+import java.nio.channels.SeekableByteChannel;
 import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.FileTime;
 import java.nio.file.spi.FileSystemProvider;
 import java.time.Instant;
@@ -29,6 +34,7 @@ import java.util.Collections;
 import java.util.Scanner;
 import java.util.UUID;
 
+@Test(groups = { "file" })
 public class FileTest {
     private final FileSystemRepository repository = new MantaFileSystemRepository();
     private final FileSystemProvider provider = new MantaFileSystemProvider(repository);
@@ -50,7 +56,7 @@ public class FileTest {
 
     @BeforeClass
     public void setup() throws IOException, MantaException {
-        mantaClient.putDirectory(testDirectory, null);
+        mantaClient.putDirectory(testDirectory);
     }
 
     @AfterClass
@@ -58,8 +64,19 @@ public class FileTest {
         mantaClient.deleteRecursive(testDirectory);
     }
 
-    @Test(groups = { "file" })
-    public void canReadAsciiFile() throws IOException, MantaException {
+    @Test
+    public void isReadable() throws IOException {
+        final String fileContents = "Hello World";
+        String testFilePath = uploadTestFile("read_file_test", fileContents);
+
+        Path fileToRead = fileSystem.getPath(testFilePath);
+
+        Assert.assertTrue(Files.isReadable(fileToRead),
+                "File should be marked as readable");
+    }
+
+    @Test
+    public void canReadAsciiFile() throws IOException {
         final String fileContents = "Hello World";
         String testFilePath = uploadTestFile("read_file_test", fileContents);
 
@@ -72,8 +89,8 @@ public class FileTest {
         }
     }
 
-    @Test(groups = { "file" })
-    public void canReadUTF8AsciiFile() throws IOException, MantaException {
+    @Test
+    public void canReadUTF8AsciiFile() throws IOException {
         final String fileContents = "\u3053\u3093\u306B\u3061\u306F";
         String testFilePath = uploadTestFile("UTF8\u30C6\u30B9\u30C8\u30D5\u30A1\u30A4\u30EB", fileContents);
 
@@ -86,8 +103,8 @@ public class FileTest {
         }
     }
 
-    @Test(groups = { "file" })
-    public void canReadBinaryFile() throws IOException, MantaException {
+    @Test
+    public void canReadBinaryFile() throws IOException {
         final byte[] content = new byte[] {
                 (byte) 0x00, (byte) 0xad, (byte) 0xdf, (byte) 0x45,
                 (byte) 0x53, (byte) 0x4a, (byte) 0xf8, (byte) 0xff };
@@ -99,8 +116,8 @@ public class FileTest {
         Assert.assertEquals(actualBytes, content);
     }
 
-    @Test(groups = { "file" })
-    public void verifyLastModifiedTime() throws IOException, MantaException {
+    @Test
+    public void verifyLastModifiedTime() throws IOException {
         // Adjust time to be before now to account for all kinds of skew
         final Instant now = Instant.now().truncatedTo(ChronoUnit.SECONDS)
                 .minusSeconds(5);
@@ -115,15 +132,117 @@ public class FileTest {
                         now, time));
     }
 
-    @Test(groups = { "file" })
-    public void createTempFile() throws IOException, MantaException {
+    @Test
+    public void canReadFromInputStream() throws IOException {
+        final String fileContents = "Hello World";
+        String testFilePath = uploadTestFile("read_file_test", fileContents);
+
+        Path fileToRead = fileSystem.getPath(testFilePath);
+
+        try (InputStream is = Files.newInputStream(fileToRead)) {
+            byte[] bytes = new byte[fileContents.length()];
+            is.read(bytes);
+            String actual = new String(bytes);
+            Assert.assertEquals(actual, fileContents,
+                    "Stream data doesn't match data written");
+        }
+    }
+
+    @Test
+    public void canGetAStreamingSeekableChannelWhenReadOnly() throws IOException {
+        final String fileContents = "Hello World";
+        String testFilePath = uploadTestFile("read_file_test", fileContents);
+
+        Path fileToRead = fileSystem.getPath(testFilePath);
+
+        try (SeekableByteChannel channel = Files.newByteChannel(fileToRead,
+                StandardOpenOption.READ)) {
+            Assert.assertEquals(channel.getClass(), MantaSeekableByteChannel.class,
+                    "Wrong class returned for channel");
+            ByteBuffer buffer = ByteBuffer.allocate(fileContents.length());
+            channel.read(buffer);
+            String actual = new String(buffer.array());
+            Assert.assertEquals(actual, fileContents,
+                    "Stream data doesn't match data written");
+        }
+    }
+
+    @Test
+    public void canGetATempFileSeekableChannelWhenWriteEnabled() throws IOException {
+        final String fileContents = "Hello World";
+        String testFilePath = uploadTestFile("read_file_test", fileContents);
+
+        Path fileToRead = fileSystem.getPath(testFilePath);
+
+        try (SeekableByteChannel channel = Files.newByteChannel(fileToRead,
+                StandardOpenOption.WRITE, StandardOpenOption.READ)) {
+            Assert.assertEquals(channel.getClass(), MantaTempSeekableByteChannel.class,
+                    "Wrong class returned for channel");
+            ByteBuffer buffer = ByteBuffer.allocate(fileContents.length());
+            channel.read(buffer);
+            String actual = new String(buffer.array());
+            Assert.assertEquals(actual, fileContents,
+                    "Stream data doesn't match data written");
+        }
+    }
+
+    @Test
+    public void canOverwriteToMantaOverSeekableChannel() throws IOException {
+        final String fileContents = "Hello World";
+        final String newContents = "Foo Bar";
+        String testFilePath = uploadTestFile("read_file_test", fileContents);
+
+        Path fileToRead = fileSystem.getPath(testFilePath);
+
+        try (SeekableByteChannel channel = Files.newByteChannel(fileToRead,
+                StandardOpenOption.WRITE)) {
+            ByteBuffer buffer = ByteBuffer.wrap(newContents.getBytes());
+            channel.write(buffer);
+        }
+
+        String actual = mantaClient.getAsString(testFilePath);
+        Assert.assertEquals(actual, "Foo Barorld",
+                "Contents were not overwritten");
+    }
+
+    @Test
+    public void canAppendToMantaOverSeekableChannel() throws IOException {
+        final String fileContents = "Hello World";
+        final String newContents = "Foo Bar";
+        String testFilePath = uploadTestFile("read_file_test", fileContents);
+
+        Path fileToRead = fileSystem.getPath(testFilePath);
+
+        try (SeekableByteChannel channel = Files.newByteChannel(fileToRead,
+                StandardOpenOption.WRITE, StandardOpenOption.APPEND)) {
+            ByteBuffer buffer = ByteBuffer.wrap(newContents.getBytes());
+            channel.write(buffer);
+        }
+
+        String actual = mantaClient.getAsString(testFilePath);
+        Assert.assertEquals(actual, "Hello WorldFoo Bar",
+                "Contents were not appended");
+    }
+
+    @Test
+    public void createTempFile() throws IOException {
         Path dir = fileSystem.getPath(testDirectory);
         Path temp = Files.createTempFile(dir, "prefix", "suffix");
 
+        // Will throw IOException if the file doesn't exist
         MantaObject head = mantaClient.head(temp.toString());
     }
 
-    @Test(groups = { "file" })
+    @Test
+    void canCreateFile() throws IOException {
+        String path = String.format("%s/%s", testDirectory, UUID.randomUUID());
+        Path file = fileSystem.getPath(path);
+        Files.createFile(file);
+
+        MantaObject head = mantaClient.head(path);
+    }
+
+    @Test
     public void isFileMarkedAsFile() throws IOException, MantaException {
         String testFilePath = uploadTestFile("read_file_test", "Hello World");
 
@@ -132,7 +251,7 @@ public class FileTest {
                 "This is a file and it should be marked as such");
     }
 
-    @Test(groups = { "file" })
+    @Test
     public void canCopyFile() throws IOException, MantaException {
         String fileContents = "Hello World";
         String testFilePath = uploadTestFile("copy_file_test", fileContents);
