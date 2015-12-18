@@ -85,6 +85,12 @@
         </dependency>
 
         <dependency>
+            <groupId>io.mola.galimatias</groupId>
+            <artifactId>galimatias</artifactId>
+            <version>0.2.1</version>
+        </dependency>
+
+        <dependency>
             <groupId>org.testng</groupId>
             <artifactId>testng</artifactId>
             <version>${dependency.testng.version}</version>

@@ -8,7 +8,11 @@ import com.github.fge.filesystem.provider.FileSystemRepository;
  * @since 1.0.0
  */
 public class MantaFileSystemProvider extends FileSystemProviderBase {
-    public MantaFileSystemProvider(FileSystemRepository repository) {
+    public MantaFileSystemProvider() {
+        this(new MantaFileSystemRepository());
+    }
+
+    protected MantaFileSystemProvider(FileSystemRepository repository) {
         super(repository);
     }
 }

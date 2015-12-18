@@ -3,9 +3,7 @@ package com.github.dekobon.manta.fs;
 import com.github.dekobon.manta.fs.config.ConfigContext;
 import com.github.dekobon.manta.fs.config.SystemSettingsConfigContext;
 import com.github.dekobon.manta.fs.provider.MantaFileSystemProvider;
-import com.github.dekobon.manta.fs.provider.MantaFileSystemRepository;
 import com.github.fge.filesystem.exceptions.UncaughtIOException;
-import com.github.fge.filesystem.provider.FileSystemRepository;
 import com.joyent.manta.client.MantaClient;
 import com.joyent.manta.client.MantaObjectResponse;
 import com.joyent.manta.exception.MantaCryptoException;
@@ -33,8 +31,7 @@ import java.util.UUID;
 
 @Test(groups = { "directory" })
 public class DirectoryTest {
-    private final FileSystemRepository repository = new MantaFileSystemRepository();
-    private final FileSystemProvider provider = new MantaFileSystemProvider(repository);
+    private final FileSystemProvider provider = new MantaFileSystemProvider();
     private final FileSystem fileSystem;
     private final ConfigContext config = new SystemSettingsConfigContext();
     private final MantaClient mantaClient;

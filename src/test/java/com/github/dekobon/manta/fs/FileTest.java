@@ -4,8 +4,6 @@ import com.github.dekobon.manta.fs.config.ConfigContext;
 import com.github.dekobon.manta.fs.config.SystemSettingsConfigContext;
 import com.github.dekobon.manta.fs.driver.MantaTempSeekableByteChannel;
 import com.github.dekobon.manta.fs.provider.MantaFileSystemProvider;
-import com.github.dekobon.manta.fs.provider.MantaFileSystemRepository;
-import com.github.fge.filesystem.provider.FileSystemRepository;
 import com.joyent.manta.client.MantaClient;
 import com.joyent.manta.client.MantaObject;
 import com.joyent.manta.client.MantaSeekableByteChannel;
@@ -24,7 +22,6 @@ import java.nio.channels.SeekableByteChannel;
 import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.FileTime;
 import java.nio.file.spi.FileSystemProvider;
@@ -36,8 +33,7 @@ import java.util.UUID;
 
 @Test(groups = { "file" })
 public class FileTest {
-    private final FileSystemRepository repository = new MantaFileSystemRepository();
-    private final FileSystemProvider provider = new MantaFileSystemProvider(repository);
+    private final FileSystemProvider provider = new MantaFileSystemProvider();
     private final FileSystem fileSystem;
     private final ConfigContext config = new SystemSettingsConfigContext();
     private final String testDirectory = String.format("/%s/stor/%s",
@@ -267,10 +263,6 @@ public class FileTest {
             Assert.assertEquals(scanner.nextLine(), fileContents,
                     String.format("File contents did not equal: %s", fileContents));
         }
-    }
-
-    public void canOpenMantaPath() {
-        Paths.get(URI.create("manta://"));
     }
 
     /**

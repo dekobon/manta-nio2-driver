@@ -3,8 +3,6 @@ package com.github.dekobon.manta.fs;
 import com.github.dekobon.manta.fs.config.ConfigContext;
 import com.github.dekobon.manta.fs.config.SystemSettingsConfigContext;
 import com.github.dekobon.manta.fs.provider.MantaFileSystemProvider;
-import com.github.dekobon.manta.fs.provider.MantaFileSystemRepository;
-import com.github.fge.filesystem.provider.FileSystemRepository;
 import org.junit.Assert;
 
 import java.io.IOException;
@@ -45,8 +43,7 @@ import java.util.Collections;
 public class PathOps {
     static final java.io.PrintStream out = System.out;
 
-    private final static FileSystemRepository repository = new MantaFileSystemRepository();
-    private final static FileSystemProvider provider = new MantaFileSystemProvider(repository);
+    private final static FileSystemProvider provider = new MantaFileSystemProvider();
     private final static FileSystem fileSystem;
 
     private String input;
