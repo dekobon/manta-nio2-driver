@@ -12,6 +12,7 @@ import org.testng.Assert;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
+import sun.security.x509.URIName;
 
 import java.io.IOException;
 import java.net.URI;
@@ -41,7 +42,7 @@ public class DirectoryTest {
 
     {
         try {
-            URI uri = URI.create(String.format("manta://%s", config.getMantaUser()));
+            URI uri = ConfigContext.mantaURIFromContext(config);
             fileSystem = provider.newFileSystem(uri, Collections.emptyMap());
             mantaClient = new MantaClient(config);
         } catch (IOException e) {
