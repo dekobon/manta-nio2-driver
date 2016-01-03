@@ -6,6 +6,7 @@ import com.github.fge.filesystem.provider.FileSystemFactoryProvider;
 import com.joyent.manta.client.MantaClient;
 import com.joyent.manta.client.MantaObject;
 import com.joyent.manta.exception.MantaClientHttpResponseException;
+import org.apache.commons.io.FilenameUtils;
 
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -218,12 +219,30 @@ public class MantaFileSystemDriver extends UnixLikeFileSystemDriverBase {
         return new MantaTempSeekableByteChannel(target, mantaClient, options);
     }
 
+    /**
+     * Converts a NIO2 path to a Manta filesystem path.
+     * @param path NIO2 path object
+     * @return relative filesystem path used to identify an object on Manta
+     * @throws IOException thrown when NIO2 can't convert to a real path
+     */
     public String findRealPath(final Path path) throws IOException {
         final Path real = path.toRealPath();
         final String pathString = real.toString();
 
-        // TODO: This is a blunt instrument - make me sharper
-        return pathString.replace("~~", config.getMantaUser());
+        final String realpath;
+
+        if (pathString.startsWith(HOME_DIR_ALIAS)) {
+            final String relative = pathString.substring(HOME_DIR_ALIAS.length());
+            realpath = String.format("/%s/%s", config.getMantaUser(), relative);
+        } else if (pathString.startsWith(SEPARATOR + HOME_DIR_ALIAS)) {
+            final String relative = pathString.substring(SEPARATOR.length()
+                    + HOME_DIR_ALIAS.length());
+            realpath = String.format("/%s/%s", config.getMantaUser(), relative);
+        } else {
+            realpath = pathString;
+        }
+
+        return FilenameUtils.normalizeNoEndSeparator(realpath);
     }
 
     @Override
