@@ -1,6 +1,6 @@
 package com.github.dekobon.manta.fs.provider;
 
-import com.github.dekobon.manta.fs.attr.MantaFileAttributesFactory;
+import com.github.dekobon.manta.fs.attributes.MantaFileAttributesFactory;
 import com.github.fge.filesystem.provider.FileSystemFactoryProvider;
 
 /**

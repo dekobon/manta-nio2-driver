@@ -1,10 +1,46 @@
 package com.github.dekobon.manta.fs;
 
+import com.github.dekobon.manta.fs.config.ConfigContext;
+import com.github.dekobon.manta.fs.config.SystemSettingsConfigContext;
+import com.github.dekobon.manta.fs.provider.MantaFileSystemProvider;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
+
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.net.URI;
+import java.nio.file.FileSystem;
+import java.nio.file.spi.FileSystemProvider;
+import java.util.Collections;
 
 import static com.github.dekobon.manta.fs.PathOps.test;
 
 public class PathTest {
+    private static FileSystemProvider provider = new MantaFileSystemProvider();
+    private FileSystem fileSystem;
+
+    @BeforeClass
+    public void setup() {
+        try {
+            ConfigContext config = new SystemSettingsConfigContext();
+            URI uri = URI.create(String.format("manta://%s", config.getMantaUser()));
+            fileSystem = provider.newFileSystem(uri, Collections.emptyMap());
+            PathOps.fileSystem = fileSystem;
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @AfterClass
+    public void cleanUp() {
+        try {
+            fileSystem.close();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
     @Test
     public void pathConstruction() {
         test("/").string("/");
@@ -242,6 +278,10 @@ public class PathTest {
                 .resolveSibling("gus", "foo/gus")
                 .resolveSibling("/gus", "/gus")
                 .resolveSibling("", "foo");
+    }
+
+    @Test
+    public void resolveSiblingRelativeToRoot() {
         test("/foo")
                 .resolveSibling("gus", "/gus")
                 .resolveSibling("/gus", "/gus")
@@ -250,33 +290,19 @@ public class PathTest {
                 .resolveSibling("gus", "/foo/gus")
                 .resolveSibling("/gus", "/gus")
                 .resolveSibling("", "/foo");
+    }
+
+    @Test
+    public void resolveSiblingFromEmptyPath() {
         test("")
                 .resolveSibling("foo", "foo")
                 .resolveSibling("/foo", "/foo")
                 .resolve("", "");
     }
 
-    @Test
+    @Test(expectedExceptions = { UnsupportedOperationException.class })
     public void relativizeFromRoot() {
-        test("/a/b/c").relativize("/a/b/c", "");
         test("/a/b/c").relativize("/a/b/c/d/e", "d/e");
-        test("/a/b/c").relativize("/a/x", "../../x");
-        test("/a/b/c").relativize("/x", "../../../x");
-    }
-
-    @Test
-    public void relativizeRelativePaths() {
-        test("a/b/c").relativize("a/b/c/d", "d");
-        test("a/b/c").relativize("a/x", "../../x");
-        test("a/b/c").relativize("x", "../../../x");
-        test("a/b/c").relativize("", "../../..");
-    }
-
-    @Test
-    public void relativizeEmptiness() {
-        test("").relativize("a", "a");
-        test("").relativize("a/b/c", "a/b/c");
-        test("").relativize("", "");
     }
 
     @Test
@@ -297,7 +323,7 @@ public class PathTest {
 
     @Test
     public void normalizeBackDirRef() {
-        test("..").normalize("..");
+        test("..").normalize("/");
     }
 
     @Test

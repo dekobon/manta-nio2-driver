@@ -116,7 +116,7 @@ public class FileTest {
     public void verifyLastModifiedTime() throws IOException {
         // Adjust time to be before now to account for all kinds of skew
         final Instant now = Instant.now().truncatedTo(ChronoUnit.SECONDS)
-                .minusSeconds(5);
+                .minusSeconds(8);
 
         String testFilePath = uploadTestFile("read_file_test", "Hello World");
 

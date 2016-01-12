@@ -3,10 +3,10 @@ package com.github.dekobon.manta.fs.provider;
 import com.github.dekobon.manta.fs.config.ConfigContext;
 import com.github.dekobon.manta.fs.config.MapConfigContext;
 import com.github.dekobon.manta.fs.config.SystemSettingsConfigContext;
+import com.github.dekobon.manta.fs.driver.MantaFileSystem;
 import com.github.dekobon.manta.fs.driver.MantaFileSystemDriver;
 import com.github.dekobon.manta.fs.filestore.MantaFileStore;
 import com.github.fge.filesystem.driver.FileSystemDriver;
-import com.github.fge.filesystem.fs.GenericFileSystem;
 import com.github.fge.filesystem.provider.FileSystemFactoryProvider;
 import com.github.fge.filesystem.provider.FileSystemRepository;
 import com.joyent.manta.client.MantaClient;
@@ -34,7 +34,7 @@ import java.util.concurrent.ConcurrentMap;
 public class MantaFileSystemRepository implements FileSystemRepository {
     public static final String SCHEME = "manta";
 
-    private final ConcurrentMap<FileSystemKey, GenericFileSystem> filesystems = new ConcurrentHashMap<>();
+    private final ConcurrentMap<FileSystemKey, MantaFileSystem> filesystems = new ConcurrentHashMap<>();
     private final FileSystemFactoryProvider factoryProvider;
 
     public MantaFileSystemRepository() {
@@ -113,11 +113,10 @@ public class MantaFileSystemRepository implements FileSystemRepository {
             throw new FileSystemAlreadyExistsException();
         }
 
-
         final MantaFileSystemDriver driver = (MantaFileSystemDriver)createDriver(uri, env);
         final FileSystemKey key = new FileSystemKey(uri, driver.getConfig());
 
-        filesystems.putIfAbsent(key, new GenericFileSystem(
+        filesystems.putIfAbsent(key, new MantaFileSystem(
                 uri, this, driver, provider));
 
         return filesystems.get(key);
@@ -142,7 +141,7 @@ public class MantaFileSystemRepository implements FileSystemRepository {
     public Path getPath(final URI uri) {
         checkURI(uri);
 
-        final GenericFileSystem fs = filesystems.entrySet()
+        final MantaFileSystem fs = filesystems.entrySet()
                 .stream()
                 .filter(entry -> entry.getKey().getUri().equals(uri) && entry.getValue().isOpen())
                 .findFirst()
@@ -163,7 +162,7 @@ public class MantaFileSystemRepository implements FileSystemRepository {
 
         FileSystem pathFileSystem = path.getFileSystem();
 
-        GenericFileSystem matchingFileSystem = filesystems
+        MantaFileSystem matchingFileSystem = filesystems
                 .values()
                 .stream()
                 .filter(fs -> fs == pathFileSystem)

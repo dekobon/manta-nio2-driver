@@ -1,17 +1,11 @@
 package com.github.dekobon.manta.fs;
 
-import com.github.dekobon.manta.fs.config.ConfigContext;
-import com.github.dekobon.manta.fs.config.SystemSettingsConfigContext;
-import com.github.dekobon.manta.fs.provider.MantaFileSystemProvider;
 import org.junit.Assert;
 
-import java.io.IOException;
-import java.net.URI;
 import java.nio.file.FileSystem;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
-import java.nio.file.spi.FileSystemProvider;
-import java.util.Collections;
+import java.util.Objects;
 
 /**
  * Adapted from: http://hg.openjdk.java.net/jdk8/jdk8/jdk/file/tip/test/java/nio/file/Path/PathOps.java
@@ -42,29 +36,18 @@ import java.util.Collections;
  */
 public class PathOps {
     static final java.io.PrintStream out = System.out;
-
-    private final static FileSystemProvider provider = new MantaFileSystemProvider();
-    private final static FileSystem fileSystem;
+    static FileSystem fileSystem;
 
     private String input;
     private Path path;
     private Exception exc;
-
-    static {
-        try {
-            ConfigContext config = new SystemSettingsConfigContext();
-            URI uri = URI.create(String.format("manta://%s", config.getMantaUser()));
-            fileSystem = provider.newFileSystem(uri, Collections.emptyMap());
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-    }
 
     private PathOps(String first, String... more) {
         out.println();
         input = first;
 
         try {
+            Objects.requireNonNull(fileSystem);
             path = fileSystem.getPath(first, more);
         } catch (InvalidPathException e) {
             exc = e;
@@ -230,50 +213,5 @@ public class PathOps {
 
     static PathOps test(String first, String... more) {
         return new PathOps(first, more);
-    }
-
-    // -- PathOpss --
-
-    static void header(String s) {
-        out.println();
-        out.println();
-        out.println("-- " + s + " --");
-    }
-
-    static void npes() {
-        header("NullPointerException");
-
-        Path path = fileSystem.getPath("foo");
-
-        try {
-            path.resolve((String)null);
-            throw new RuntimeException("NullPointerException not thrown");
-        } catch (NullPointerException npe) {
-        }
-
-        try {
-            path.relativize(null);
-            throw new RuntimeException("NullPointerException not thrown");
-        } catch (NullPointerException npe) {
-        }
-
-        try {
-            path.compareTo(null);
-            throw new RuntimeException("NullPointerException not thrown");
-        } catch (NullPointerException npe) {
-        }
-
-        try {
-            path.startsWith((Path)null);
-            throw new RuntimeException("NullPointerException not thrown");
-        } catch (NullPointerException npe) {
-        }
-
-        try {
-            path.endsWith((Path)null);
-            throw new RuntimeException("NullPointerException not thrown");
-        } catch (NullPointerException npe) {
-        }
-
     }
 }

@@ -1,4 +1,4 @@
-package com.github.dekobon.manta.fs.attr;
+package com.github.dekobon.manta.fs.attributes;
 
 import com.github.fge.filesystem.attributes.FileAttributesFactory;
 import com.joyent.manta.client.MantaObject;

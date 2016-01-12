@@ -150,14 +150,8 @@ public class MantaFileSystemDriver extends UnixLikeFileSystemDriverBase {
     public void checkAccess(Path path, AccessMode... modes) throws IOException {
         final String target = findRealPath(path);
 
-//        if (target.equals(SEPARATOR)) {
-//            throw new AccessDeniedException(target, null,
-//                    "The root directory [/] is not accessible");
-//        }
-
-
         try {
-            MantaObject object = mantaClient.head(target);
+            mantaClient.head(target);
 
             for (final AccessMode mode : modes) {
                 switch (mode) {
@@ -252,5 +246,9 @@ public class MantaFileSystemDriver extends UnixLikeFileSystemDriverBase {
 
     public ConfigContext getConfig() {
         return config;
+    }
+
+    public MantaClient getMantaClient() {
+        return mantaClient;
     }
 }
