@@ -1,7 +1,6 @@
 package com.github.dekobon.manta.fs.driver;
 
-import com.github.dekobon.manta.fs.util.ImmutableCollector;
-import com.github.fge.filesystem.attributes.FileAttributesFactory;
+import com.github.dekobon.manta.fs.util.Immutables;
 import com.github.fge.filesystem.driver.FileSystemDriver;
 import com.github.fge.filesystem.path.matchers.PathMatcherFactory;
 import com.github.fge.filesystem.provider.FileSystemFactoryProvider;
@@ -22,6 +21,14 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class MantaFileSystem extends FileSystem {
+    private static final Set<String> SUPPORTED_FILE_ATTRIBUTE_VIEWS =
+            Immutables.immutableSet(
+                    "basic:fileKey",
+                    "basic:isDirectory",
+                    "basic:isRegularFile",
+                    "basic:lastModifiedTime",
+                    "basic:size");
+
     private final AtomicBoolean open = new AtomicBoolean(true);
 
     private final URI uri;
@@ -29,7 +36,6 @@ public class MantaFileSystem extends FileSystem {
     private final MantaFileSystemDriver driver;
     private final FileSystemProvider provider;
     private final PathMatcherFactory pathMatcherFactory;
-    private final FileAttributesFactory attributesFactory;
 
 
     /**
@@ -52,7 +58,6 @@ public class MantaFileSystem extends FileSystem {
         final FileSystemFactoryProvider factoryProvider
                 = repository.getFactoryProvider();
         pathMatcherFactory = factoryProvider.getPathMatcherFactory();
-        attributesFactory = factoryProvider.getAttributesFactory();
     }
 
     public URI getUri() {
@@ -70,21 +75,16 @@ public class MantaFileSystem extends FileSystem {
 
     @Override
     public void close() throws IOException {
-        if (!open.getAndSet(false))
+        // Don't close and unregister the filesystem twice
+        if (!open.getAndSet(false)) {
             return;
-
-        IOException exception = null;
+        }
 
         try {
             driver.close();
-        } catch (IOException e) {
-            exception = e;
+        } finally {
+            repository.unregister(uri);
         }
-
-        repository.unregister(uri);
-
-        if (exception != null)
-            throw exception;
     }
 
     @Override
@@ -119,12 +119,7 @@ public class MantaFileSystem extends FileSystem {
 
     @Override
     public Set<String> supportedFileAttributeViews() {
-        return attributesFactory
-                .getDescriptors()
-                .keySet()
-                .stream()
-                .filter(attributesFactory::supportsFileAttributeView)
-                .collect(ImmutableCollector.toImmutableSet());
+        return SUPPORTED_FILE_ATTRIBUTE_VIEWS;
     }
 
     @Override
@@ -135,9 +130,11 @@ public class MantaFileSystem extends FileSystem {
 
     @Override
     public PathMatcher getPathMatcher(final String syntaxAndPattern) {
-        final int index = Objects.requireNonNull(syntaxAndPattern).indexOf(':');
+        Objects.requireNonNull(syntaxAndPattern);
 
-        final String type, arg;
+        final int index = syntaxAndPattern.indexOf(':');
+        final String type;
+        final String arg;
 
         if (index == -1) {
             type = "glob";
