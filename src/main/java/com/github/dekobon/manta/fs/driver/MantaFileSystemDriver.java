@@ -213,6 +213,11 @@ public class MantaFileSystemDriver extends UnixLikeFileSystemDriverBase {
         return new MantaTempSeekableByteChannel(target, mantaClient, options);
     }
 
+    @Override
+    public boolean isHidden(Path path) throws IOException {
+        return false;
+    }
+
     /**
      * Converts a NIO2 path to a Manta filesystem path.
      * @param path NIO2 path object

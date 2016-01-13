@@ -2,8 +2,6 @@ package com.github.dekobon.manta.fs;
 
 import com.github.dekobon.manta.fs.config.ConfigContext;
 import com.github.dekobon.manta.fs.config.SystemSettingsConfigContext;
-import com.github.dekobon.manta.fs.provider.MantaFileSystemProvider;
-import com.github.fge.filesystem.exceptions.UncaughtIOException;
 import com.joyent.manta.client.MantaClient;
 import com.joyent.manta.client.MantaObjectResponse;
 import com.joyent.manta.exception.MantaCryptoException;
@@ -12,18 +10,11 @@ import org.testng.Assert;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
-import sun.security.x509.URIName;
 
 import java.io.IOException;
 import java.net.URI;
-import java.nio.file.AccessDeniedException;
-import java.nio.file.DirectoryStream;
-import java.nio.file.FileSystem;
-import java.nio.file.Files;
-import java.nio.file.NoSuchFileException;
-import java.nio.file.Path;
+import java.nio.file.*;
 import java.nio.file.attribute.FileTime;
-import java.nio.file.spi.FileSystemProvider;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -32,38 +23,34 @@ import java.util.UUID;
 
 @Test(groups = { "directory" })
 public class DirectoryTest {
-    private final FileSystemProvider provider = new MantaFileSystemProvider();
-    private final FileSystem fileSystem;
     private final ConfigContext config = new SystemSettingsConfigContext();
-    private final MantaClient mantaClient;
+    private FileSystem fileSystem;
+    private MantaClient mantaClient;
     private String testPathPrefix;
 
     private static final String TEST_DATA = "I AM STRING DATA!";
 
-    {
-        try {
-            URI uri = ConfigContext.mantaURIFromContext(config);
-            fileSystem = provider.newFileSystem(uri, Collections.emptyMap());
-            mantaClient = new MantaClient(config);
-        } catch (IOException e) {
-            throw new UncaughtIOException(e);
-        }
-    }
-
     @BeforeClass
     public void beforeClass()
             throws IOException, MantaCryptoException {
+        URI uri = ConfigContext.mantaURIFromContext(config);
+        fileSystem = FileSystems.newFileSystem(uri, Collections.emptyMap());
+        mantaClient = new MantaClient(config);
+
         testPathPrefix = String.format("/%s/stor/%s",
                 config.getMantaHomeDirectory(), UUID.randomUUID());
         mantaClient.putDirectory(testPathPrefix);
     }
-
 
     @AfterClass
     public void afterClass() throws IOException, MantaCryptoException {
         if (mantaClient != null) {
             mantaClient.deleteRecursive(testPathPrefix);
             mantaClient.closeQuietly();
+        }
+
+        if (fileSystem != null) {
+            fileSystem.close();
         }
     }
 

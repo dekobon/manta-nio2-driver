@@ -6,6 +6,7 @@ import com.github.fge.filesystem.path.matchers.PathMatcherFactory;
 import com.github.fge.filesystem.provider.FileSystemFactoryProvider;
 import com.github.fge.filesystem.provider.FileSystemRepository;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.FileStore;
@@ -20,7 +21,9 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-public class MantaFileSystem extends FileSystem {
+public class MantaFileSystem extends FileSystem implements Closeable {
+    public static final String SCHEME = "manta";
+
     private static final Set<String> SUPPORTED_FILE_ATTRIBUTE_VIEWS =
             Immutables.immutableSet(
                     "basic:fileKey",

@@ -3,7 +3,6 @@ package com.github.dekobon.manta.fs;
 import com.github.dekobon.manta.fs.config.ConfigContext;
 import com.github.dekobon.manta.fs.config.SystemSettingsConfigContext;
 import com.github.dekobon.manta.fs.driver.MantaTempSeekableByteChannel;
-import com.github.dekobon.manta.fs.provider.MantaFileSystemProvider;
 import com.joyent.manta.client.MantaClient;
 import com.joyent.manta.client.MantaObject;
 import com.joyent.manta.client.MantaSeekableByteChannel;
@@ -19,12 +18,8 @@ import java.io.InputStream;
 import java.net.URI;
 import java.nio.ByteBuffer;
 import java.nio.channels.SeekableByteChannel;
-import java.nio.file.FileSystem;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
+import java.nio.file.*;
 import java.nio.file.attribute.FileTime;
-import java.nio.file.spi.FileSystemProvider;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Collections;
@@ -33,32 +28,32 @@ import java.util.UUID;
 
 @Test(groups = { "file" })
 public class FileTest {
-    private final FileSystemProvider provider = new MantaFileSystemProvider();
-    private final FileSystem fileSystem;
     private final ConfigContext config = new SystemSettingsConfigContext();
     private final String testDirectory = String.format("/%s/stor/%s",
             config.getMantaUser(), UUID.randomUUID());
-    private final MantaClient mantaClient;
 
-    {
-        try {
-            URI uri = ConfigContext.mantaURIFromContext(config);
-            fileSystem = provider.newFileSystem(uri, Collections.emptyMap());
-            mantaClient = new MantaClient(config);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-    }
+    private FileSystem fileSystem;
+    private MantaClient mantaClient;
 
     @BeforeClass
     public void setup() throws IOException, MantaException {
+        URI uri = ConfigContext.mantaURIFromContext(config);
+        fileSystem = FileSystems.newFileSystem(uri, Collections.emptyMap());
+        mantaClient = new MantaClient(config);
+
         mantaClient.putDirectory(testDirectory);
     }
 
     @AfterClass
     public void cleanUp() throws IOException, MantaException {
-        mantaClient.deleteRecursive(testDirectory);
-    }
+        if (mantaClient != null) {
+            mantaClient.deleteRecursive(testDirectory);
+            mantaClient.closeQuietly();
+        }
+
+        if (fileSystem != null) {
+            fileSystem.close();
+        }    }
 
     @Test
     public void isReadable() throws IOException {

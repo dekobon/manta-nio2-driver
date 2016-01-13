@@ -2,42 +2,33 @@ package com.github.dekobon.manta.fs;
 
 import com.github.dekobon.manta.fs.config.ConfigContext;
 import com.github.dekobon.manta.fs.config.SystemSettingsConfigContext;
-import com.github.dekobon.manta.fs.provider.MantaFileSystemProvider;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.net.URI;
 import java.nio.file.FileSystem;
-import java.nio.file.spi.FileSystemProvider;
+import java.nio.file.FileSystems;
 import java.util.Collections;
 
 import static com.github.dekobon.manta.fs.PathOps.test;
 
 public class PathTest {
-    private static FileSystemProvider provider = new MantaFileSystemProvider();
     private FileSystem fileSystem;
 
     @BeforeClass
-    public void setup() {
-        try {
-            ConfigContext config = new SystemSettingsConfigContext();
-            URI uri = URI.create(String.format("manta://%s", config.getMantaUser()));
-            fileSystem = provider.newFileSystem(uri, Collections.emptyMap());
-            PathOps.fileSystem = fileSystem;
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+    public void setup() throws IOException {
+        ConfigContext config = new SystemSettingsConfigContext();
+        URI uri = ConfigContext.mantaURIFromContext(config);
+        fileSystem = FileSystems.newFileSystem(uri, Collections.emptyMap());
+        PathOps.fileSystem = fileSystem;
     }
 
     @AfterClass
-    public void cleanUp() {
-        try {
+    public void cleanUp() throws IOException {
+        if (fileSystem != null) {
             fileSystem.close();
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
         }
     }
 

@@ -1,8 +1,6 @@
 package com.github.dekobon.manta.fs.config;
 
-import com.github.dekobon.manta.fs.provider.MantaFileSystemRepository;
-import com.joyent.manta.client.MantaUtils;
-import com.joyent.manta.config.DefaultsConfigContext;
+import com.github.dekobon.manta.fs.driver.MantaFileSystem;
 
 import java.net.URI;
 
@@ -26,7 +24,7 @@ public interface ConfigContext extends com.joyent.manta.config.ConfigContext {
         final URI mantaURI = URI.create(config.getMantaURL());
 
         StringBuilder builder = new StringBuilder();
-        builder.append(MantaFileSystemRepository.SCHEME)
+        builder.append(MantaFileSystem.SCHEME)
                .append("://")
                .append(mantaURI.getHost())
                .append(":");

@@ -1,6 +1,5 @@
 package com.github.dekobon.manta.fs.driver;
 
-import com.github.dekobon.manta.fs.provider.MantaFileSystemRepository;
 import com.joyent.manta.client.MantaClient;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -9,13 +8,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.URI;
-import java.nio.file.FileSystem;
-import java.nio.file.InvalidPathException;
-import java.nio.file.LinkOption;
-import java.nio.file.Path;
-import java.nio.file.WatchEvent;
-import java.nio.file.WatchKey;
-import java.nio.file.WatchService;
+import java.nio.file.*;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.Objects;
@@ -469,7 +462,7 @@ public class MantaPath implements Path {
     public URI toUri() {
         return URI.create(
                 String.format("%s://%s",
-                        MantaFileSystemRepository.SCHEME,
+                        MantaFileSystem.SCHEME,
                         objectPath)
         );
     }
