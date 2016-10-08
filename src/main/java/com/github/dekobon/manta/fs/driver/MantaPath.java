@@ -3,7 +3,7 @@ package com.github.dekobon.manta.fs.driver;
 import com.github.dekobon.manta.fs.provider.MantaFileSystemRepository;
 import com.joyent.manta.client.MantaClient;
 import org.apache.commons.io.FilenameUtils;
-import org.apache.commons.lang3.StringUtils;
+import com.joyent.manta.org.apache.commons.lang3.StringUtils;
 
 import java.io.File;
 import java.io.IOException;

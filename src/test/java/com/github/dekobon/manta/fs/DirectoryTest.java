@@ -7,12 +7,11 @@ import com.github.fge.filesystem.exceptions.UncaughtIOException;
 import com.joyent.manta.client.MantaClient;
 import com.joyent.manta.client.MantaObjectResponse;
 import com.joyent.manta.exception.MantaCryptoException;
-import org.apache.commons.lang3.StringUtils;
+import com.joyent.manta.org.apache.commons.lang3.StringUtils;
 import org.testng.Assert;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
-import sun.security.x509.URIName;
 
 import java.io.IOException;
 import java.net.URI;

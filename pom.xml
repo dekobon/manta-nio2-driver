@@ -73,12 +73,6 @@
         </dependency>
 
         <dependency>
-            <groupId>org.apache.commons</groupId>
-            <artifactId>commons-lang3</artifactId>
-            <version>3.4</version>
-        </dependency>
-
-        <dependency>
             <groupId>com.google.code.findbugs</groupId>
             <artifactId>jsr305</artifactId>
             <version>3.0.0</version>
@@ -108,6 +102,43 @@
                     <source>${java.min.version}</source>
                     <target>${java.min.version}</target>
                 </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <configuration>
+                    <minimizeJar>true</minimizeJar>
+                    <artifactSet>
+                        <excludes>
+                            <exclude>com.google.code.findbugs:jsr305</exclude>
+                            <exclude>junit:junit</exclude>
+                            <exclude>org.slf4j:slf4j-api</exclude>
+                            <exclude>org.bouncycastle:*</exclude>
+                            <exclude>com.squareup.jnagmp:*</exclude>
+                            <exclude>net.java.dev.jna:*</exclude>
+                            <exclude>org.hamcrest:*</exclude>
+                            <exclude>org.mockito:*</exclude>
+                            <exclude>com.joyent:*</exclude>
+                            <exclude>io.mola.galimatias:*</exclude>
+                            <exclude>commons-io:*</exclude>
+                        </excludes>
+                    </artifactSet>
+                    <relocations>
+                        <relocation>
+                            <pattern>com.github.fge.filesystem</pattern>
+                            <shadedPattern>com.joyent.manta.com.github.fge.filesystem</shadedPattern>
+                        </relocation>
+                    </relocations>
+                </configuration>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
