@@ -1,1 +1,1 @@
-com.github.dekobon.manta.fs.provider.MantaFileSystemProvider
+com.joyent.manta.fs.provider.MantaFileSystemProvider
