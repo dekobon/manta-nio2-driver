@@ -58,8 +58,8 @@ public class MantaFileSystemDriver extends UnixLikeFileSystemDriverBase {
     public OutputStream newOutputStream(final Path path,
                                         final Set<OpenOption> options)
             throws IOException {
-        // Implement me using temp files
-        throw new UnsupportedOperationException("Not implemented");
+        final String target = findRealPath(path);
+        return mantaClient.putAsOutputStream(target);
     }
 
     @Nonnull
@@ -190,6 +190,7 @@ public class MantaFileSystemDriver extends UnixLikeFileSystemDriverBase {
 
     }
 
+    @Nonnull
     @Override
     public SeekableByteChannel newByteChannel(final Path path,
                                               final Set<? extends OpenOption> options,
